@@ -1,0 +1,70 @@
+# Schema for Hotel bookings (contract)
+
+type Hotel {
+  hotelId: ID!
+  name: String
+  city: String
+  address: String
+  pricePerNight: Float
+  available: Boolean
+  availableRoomTypes: [String]
+}
+
+type Booking {
+  bookingId: ID!
+  hotelId: ID!
+  status: String
+  customerName: String
+  customerEmail: String
+  roomType: String
+  hotel: Hotel
+}
+
+type BookingPage {
+  content: [Booking]
+  pageNumber: Int
+  pageSize: Int
+  totalElements: Int
+  totalPages: Int
+  last: Boolean
+}
+
+type StatusResponse {
+  status: String
+  error: String
+}
+
+input HotelSearchInput {
+  city: String!
+  checkIn: String!
+  checkOut: String!
+  guests: Int!
+}
+
+input BookingInput {
+  hotelId: ID!
+  checkIn: String!
+  checkOut: String!
+  guests: Int!
+  customerName: String!
+  customerEmail: String!
+  roomType: String
+}
+
+input CancelBookingInput {
+  bookingId: ID!
+}
+
+type Query {
+  # search hotels with optional room type filter
+  searchHotels(input: HotelSearchInput!, roomTypeFilter: String): [Hotel]
+
+  bookings(page: Int = 0, size: Int = 10): BookingPage
+  bookingById(id: ID!): Booking
+}
+
+type Mutation {
+  createBooking(input: BookingInput!): Booking
+  cancelBooking(input: CancelBookingInput!): StatusResponse
+  updateBookingRoomType(id: ID!, roomType: String!): Booking
+}

@@ -1,0 +1,91 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    networks:
+      - backend
+
+  postgres-audit:
+    image: postgres:16-alpine
+    container_name: postgres-audit
+    environment:
+      POSTGRES_DB: auditdb
+      POSTGRES_USER: audit_user
+      POSTGRES_PASSWORD: audit_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_audit_data:/var/lib/postgresql/data
+#      - ./init-scripts/audit-init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U audit_user -d auditdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend
+
+  hotel:
+    build:
+      context: .
+      dockerfile: hotel/Dockerfile
+    image: hotel-service:latest
+    container_name: hotel-service
+    environment:
+      - SPRING_RABBITMQ_HOST=rabbitmq
+      - SPRING_RABBITMQ_PORT=5672
+      - SPRING_RABBITMQ_USERNAME=guest
+      - SPRING_RABBITMQ_PASSWORD=guest
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    networks:
+      - backend
+
+  audit:
+    build:
+      context: .
+      dockerfile: hotel-audit-service/Dockerfile
+    image: audit-service:latest
+    container_name: audit-service
+    environment:
+      - SPRING_RABBITMQ_HOST=rabbitmq
+      - SPRING_RABBITMQ_PORT=5672
+      - SPRING_RABBITMQ_USERNAME=guest
+      - SPRING_RABBITMQ_PASSWORD=guest
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-audit:5432/auditdb
+      - SPRING_DATASOURCE_USERNAME=audit_user
+      - SPRING_DATASOURCE_PASSWORD=audit_pass
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      postgres-audit:
+        condition: service_healthy
+    ports:
+      - "8082:8082"
+    networks:
+      - backend
+
+volumes:
+  rabbitmq_data:
+  postgres_audit_data:
+
+networks:
+  backend:
+    driver: bridge
