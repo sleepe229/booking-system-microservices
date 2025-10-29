@@ -115,7 +115,6 @@ cp .env.example .env
 
 Example configuration:
 
-```bash
 RABBITMQ_HOST=rabbitmq
 RABBITMQ_PORT=5672
 RABBITMQ_USER=guest
@@ -197,5 +196,6 @@ docker run -d --hostname rabbitmq --name rabbit \
 ## License
 
 This project is licensed under the **MIT License** — see the [LICENSE](./LICENSE) file for details.
+
 
 ---
