@@ -27,9 +27,11 @@ External clients interact with the system via REST and GraphQL APIs exposed by t
                     ┌────────────▼────────────┐
                     │   Gateway Service       │
                     │  (hotel-service)        │
-                    │  - REST API             │
+                    │  - REST API (HATEOAS)   │
                     │  - GraphQL API          │
                     │  - Validation/Auth      │
+                    │  - PostgreSQL (hotels,  │
+                    │    bookings)            │
                     └────────────┬────────────┘
                                  │
                           Publishes Events
@@ -50,9 +52,9 @@ External clients interact with the system via REST and GraphQL APIs exposed by t
 │ - Logs events  │    │ - Processes    │    │ - Email            │
 │ - CSV export   │    │   bookings     │    └────────────────────┘
 │ - Reports      │    │ - gRPC client  │    
-└────────────────┘    └────────┬───────┘
-                               │
-                               │ gRPC Call
+│ - PostgreSQL   │    └────────┬───────┘
+│   (audit logs) │             │
+└────────────────┘             │ gRPC Call
                                │
                     ┌──────────▼───────────┐
                     │ Discount Service     │
@@ -66,15 +68,16 @@ External clients interact with the system via REST and GraphQL APIs exposed by t
 
 ## Services Overview
 
-| Service                          | Status       | Description                                                |
-| -------------------------------- | ------------- | ---------------------------------------------------------- |
-| **Gateway Service** (`hotel`)    | Implemented  | REST/GraphQL API for clients; publishes events to RabbitMQ |
-| **RabbitMQ Broker**              | Implemented  | Central message bus for event distribution                 |
-| **Audit Service** (`audit`)      | Implemented  | Subscribes to events and stores logs/reports in PostgreSQL |
-| **PostgreSQL (Audit DB)**        | Implemented  | Persistent audit log storage                               |
-| **Booking Orchestrator**         | Planned      | Business logic orchestration for booking workflow          |
-| **Discount / Analytics Service** | Planned      | gRPC service for discounts and analytics                   |
-| **Notification Service**         | Planned      | Handles client notifications (email/SMS/push)              |
+| Service                          | Status       | Description                                                        |
+| -------------------------------- | ------------- | ------------------------------------------------------------------ |
+| **Gateway Service** (`hotel`)    | ✅ Implemented | REST/GraphQL API (HATEOAS); PostgreSQL storage; publishes to RabbitMQ |
+| **RabbitMQ Broker**              | ✅ Implemented | Central message bus for event distribution (JSON serialization)    |
+| **Audit Service** (`audit`)      | ✅ Implemented | Subscribes to all events; stores logs in PostgreSQL; CSV exports   |
+| **PostgreSQL (Gateway DB)**      | ✅ Implemented | Stores hotels and bookings                                         |
+| **PostgreSQL (Audit DB)**        | ✅ Implemented | Persistent audit log storage                                       |
+| **Booking Orchestrator**         | ⏳ Planned     | Business logic orchestration for booking workflow                  |
+| **Discount / Analytics Service** | ⏳ Planned     | gRPC service for discounts and analytics                           |
+| **Notification Service**         | ⏳ Planned     | Handles client notifications (email/SMS/push)                      |
 
 ---
 
@@ -83,15 +86,16 @@ External clients interact with the system via REST and GraphQL APIs exposed by t
 
 ## Technology Stack
 
-| Layer                       | Technology             |
-| ---------------------------- | ---------------------- |
-| API Layer                   | REST / GraphQL         |
-| Messaging                   | RabbitMQ               |
-| Database                    | PostgreSQL             |
-| Inter-Service Communication | gRPC (planned)         |
-| Serialization               | JSON / Protobuf        |
-| Infrastructure              | Docker, Docker Compose |
-| Language                    | Java (Spring Boot)     |
+| Layer                       | Technology               |
+| --------------------------- | -----------------------  |
+| API Layer                   | REST (HATEOAS) / GraphQL |
+| Messaging                   | RabbitMQ (JSON)          |
+| Database                    | PostgreSQL               |
+| Inter-Service Communication | gRPC (planned)           |
+| Serialization               | JSON / Protobuf          |
+| Infrastructure              | Docker, Docker Compose   |
+| Language                    | Java 21 (Spring Boot 3)  |
+| API Standards               | HAL (HATEOAS), OpenAPI 3 |
 
 ---
 
@@ -115,13 +119,23 @@ cp .env.example .env
 
 Example configuration:
 
+# RabbitMQ
 RABBITMQ_HOST=rabbitmq
 RABBITMQ_PORT=5672
 RABBITMQ_USER=guest
 RABBITMQ_PASS=guest
-DB_URL=jdbc:postgresql://postgres-audit:5432/auditdb
-DB_USER=audit_user
-DB_PASS=audit_pass
+
+# Gateway Database
+GATEWAY_DB_URL=jdbc:postgresql://postgres-gateway:5432/gatewaydb
+GATEWAY_DB_USER=gateway_user
+GATEWAY_DB_PASS=gateway_pass
+
+# Audit Database
+AUDIT_DB_URL=jdbc:postgresql://postgres-audit:5432/auditdb
+AUDIT_DB_USER=audit_user
+AUDIT_DB_PASS=audit_pass
+
+# Service Ports
 GATEWAY_PORT=8080
 AUDIT_PORT=8082
 ```
@@ -199,3 +213,4 @@ This project is licensed under the **MIT License** — see the [LICENSE](./LICEN
 
 
 ---
+
