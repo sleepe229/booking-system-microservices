@@ -6,4 +6,4 @@ public record BookingRejectedEvent(
         Long bookingId,
         String customerEmail,
         String reason
-) implements Serializable {}
+) {}

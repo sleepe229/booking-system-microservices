@@ -18,6 +18,25 @@ services:
     networks:
       - backend
 
+  postgres-gateway:
+    image: postgres:16-alpine
+    container_name: postgres-gateway
+    environment:
+      POSTGRES_DB: gatewaydb
+      POSTGRES_USER: gateway_user
+      POSTGRES_PASSWORD: gateway_pass
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_gateway_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gateway_user -d gatewaydb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend
+
   postgres-audit:
     image: postgres:16-alpine
     container_name: postgres-audit
@@ -29,7 +48,6 @@ services:
       - "5432:5432"
     volumes:
       - postgres_audit_data:/var/lib/postgresql/data
-#      - ./init-scripts/audit-init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U audit_user -d auditdb"]
       interval: 10s
@@ -46,11 +64,13 @@ services:
     container_name: hotel-service
     environment:
       - SPRING_RABBITMQ_HOST=rabbitmq
-      - SPRING_RABBITMQ_PORT=5672
-      - SPRING_RABBITMQ_USERNAME=guest
-      - SPRING_RABBITMQ_PASSWORD=guest
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-gateway:5432/gatewaydb
+      - SPRING_DATASOURCE_USERNAME=gateway_user
+      - SPRING_DATASOURCE_PASSWORD=gateway_pass
     depends_on:
       rabbitmq:
+        condition: service_healthy
+      postgres-gateway:
         condition: service_healthy
     ports:
       - "8080:8080"
@@ -65,13 +85,9 @@ services:
     container_name: audit-service
     environment:
       - SPRING_RABBITMQ_HOST=rabbitmq
-      - SPRING_RABBITMQ_PORT=5672
-      - SPRING_RABBITMQ_USERNAME=guest
-      - SPRING_RABBITMQ_PASSWORD=guest
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-audit:5432/auditdb
       - SPRING_DATASOURCE_USERNAME=audit_user
       - SPRING_DATASOURCE_PASSWORD=audit_pass
-      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -84,6 +100,7 @@ services:
 
 volumes:
   rabbitmq_data:
+  postgres_gateway_data:
   postgres_audit_data:
 
 networks:

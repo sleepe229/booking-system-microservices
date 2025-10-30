@@ -6,4 +6,4 @@ public record DiscountCalculatedEvent(
         Long bookingId,
         Double discountAmount,
         String discountType
-) implements Serializable {}
+) {}

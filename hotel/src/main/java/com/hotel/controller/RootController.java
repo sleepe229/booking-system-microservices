@@ -19,7 +19,7 @@ public class RootController {
 
         rootModel.add(
                 linkTo(methodOn(HotelController.class).searchHotels(null)).withRel("hotels"),
-                linkTo(methodOn(HotelController.class).listBookings(0, 10)).withRel("bookings")
+                linkTo(HotelController.class).slash("bookings").withRel("bookings")
         );
 
         rootModel.add(WebMvcLinkBuilder.linkTo(WebMvcLinkBuilder.methodOn(RootController.class).getRoot())

@@ -8,4 +8,4 @@ public record BookingConfirmedEvent(
         String customerEmail,
         Double finalPrice,
         Double discount
-) implements Serializable {}
+){}

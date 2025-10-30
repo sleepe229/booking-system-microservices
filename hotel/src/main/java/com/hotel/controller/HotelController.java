@@ -9,6 +9,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.web.PagedResourcesAssembler;
 import org.springframework.hateoas.*;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -59,7 +60,9 @@ public class HotelController implements HotelApi {
     }
 
     @Override
-    public PagedModel<EntityModel<BookingResponse>> listBookings(int page, int size) {
+    public PagedModel<EntityModel<BookingResponse>> listBookings(
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size) {
         Page<BookingResponse> pageResult = hotelService.listBookings(page, size);
         return pagedResourcesAssembler.toModel(pageResult, bookingAssembler);
     }

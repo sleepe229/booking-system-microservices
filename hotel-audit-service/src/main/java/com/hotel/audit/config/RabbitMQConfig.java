@@ -1,13 +1,10 @@
 package com.hotel.audit.config;
 
 import org.springframework.amqp.core.*;
-import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory;
-import org.springframework.amqp.support.converter.DefaultClassMapper;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
-import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 
 @Configuration
 public class RabbitMQConfig {
@@ -18,7 +15,11 @@ public class RabbitMQConfig {
     public static final String QUEUE_BOOKING_CANCELLED = "audit-booking-cancelled-queue";
     public static final String QUEUE_BOOKING_CONFIRMED = "audit-booking-confirmed-queue";
     public static final String QUEUE_BOOKING_REJECTED = "audit-booking-rejected-queue";
-    public static final String QUEUE_PAYMENT_CONFIRMED = "audit-payment-confirmed-queue";
+
+    public static final String ROUTING_KEY_BOOKING_CREATED = "booking.created";
+    public static final String ROUTING_KEY_BOOKING_CANCELLED = "booking.cancelled";
+    public static final String ROUTING_KEY_BOOKING_CONFIRMED = "booking.confirmed";
+    public static final String ROUTING_KEY_BOOKING_REJECTED = "booking.rejected";
 
     @Bean
     public TopicExchange bookingsExchange() {
@@ -26,77 +27,47 @@ public class RabbitMQConfig {
     }
 
     @Bean
-    public Queue bookingCreatedQueue() {
-        return QueueBuilder.durable(QUEUE_BOOKING_CREATED).build();
+    public Queue queueBookingCreated() {
+        return new Queue(QUEUE_BOOKING_CREATED, true);
     }
 
     @Bean
-    public Queue bookingCancelledQueue() {
-        return QueueBuilder.durable(QUEUE_BOOKING_CANCELLED).build();
+    public Queue queueBookingCancelled() {
+        return new Queue(QUEUE_BOOKING_CANCELLED, true);
     }
 
     @Bean
-    public Queue bookingConfirmedQueue() {
-        return QueueBuilder.durable(QUEUE_BOOKING_CONFIRMED).build();
+    public Queue queueBookingConfirmed() {
+        return new Queue(QUEUE_BOOKING_CONFIRMED, true);
     }
 
     @Bean
-    public Queue bookingRejectedQueue() {
-        return QueueBuilder.durable(QUEUE_BOOKING_REJECTED).build();
+    public Queue queueBookingRejected() {
+        return new Queue(QUEUE_BOOKING_REJECTED, true);
     }
 
     @Bean
-    public Queue paymentConfirmedQueue() {
-        return QueueBuilder.durable(QUEUE_PAYMENT_CONFIRMED).build();
+    public Binding bindingBookingCreated(TopicExchange bookingsExchange) {
+        return BindingBuilder.bind(queueBookingCreated()).to(bookingsExchange).with(ROUTING_KEY_BOOKING_CREATED);
     }
 
     @Bean
-    public Binding bindingBookingCreated(@Qualifier("bookingCreatedQueue") Queue queue,
-                                         TopicExchange exchange) {
-        return BindingBuilder.bind(queue).to(exchange).with("booking.created");
+    public Binding bindingBookingCancelled(TopicExchange bookingsExchange) {
+        return BindingBuilder.bind(queueBookingCancelled()).to(bookingsExchange).with(ROUTING_KEY_BOOKING_CANCELLED);
     }
 
     @Bean
-    public Binding bindingBookingCancelled(@Qualifier("bookingCancelledQueue") Queue queue,
-                                           TopicExchange exchange) {
-        return BindingBuilder.bind(queue).to(exchange).with("booking.cancelled");
+    public Binding bindingBookingConfirmed(TopicExchange bookingsExchange) {
+        return BindingBuilder.bind(queueBookingConfirmed()).to(bookingsExchange).with(ROUTING_KEY_BOOKING_CONFIRMED);
     }
 
     @Bean
-    public Binding bindingBookingConfirmed(@Qualifier("bookingConfirmedQueue") Queue queue,
-                                           TopicExchange exchange) {
-        return BindingBuilder.bind(queue).to(exchange).with("booking.confirmed");
+    public Binding bindingBookingRejected(TopicExchange bookingsExchange) {
+        return BindingBuilder.bind(queueBookingRejected()).to(bookingsExchange).with(ROUTING_KEY_BOOKING_REJECTED);
     }
 
     @Bean
-    public Binding bindingBookingRejected(@Qualifier("bookingRejectedQueue") Queue queue,
-                                          TopicExchange exchange) {
-        return BindingBuilder.bind(queue).to(exchange).with("booking.rejected");
-    }
-
-    @Bean
-    public Binding bindingPaymentConfirmed(@Qualifier("paymentConfirmedQueue") Queue queue,
-                                           TopicExchange exchange) {
-        return BindingBuilder.bind(queue).to(exchange).with("payment.confirmed");
-    }
-
-    @Bean
-    public Jackson2JsonMessageConverter jackson2JsonMessageConverter() {
-        Jackson2JsonMessageConverter converter = new Jackson2JsonMessageConverter();
-        DefaultClassMapper classMapper = new DefaultClassMapper();
-        classMapper.setTrustedPackages("com.hotel.events");
-        converter.setClassMapper(classMapper);
-        return converter;
-    }
-
-    @Bean
-    public SimpleRabbitListenerContainerFactory rabbitListenerContainerFactory(
-            ConnectionFactory connectionFactory,
-            Jackson2JsonMessageConverter jackson2JsonMessageConverter
-    ) {
-        SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
-        factory.setConnectionFactory(connectionFactory);
-        factory.setMessageConverter(jackson2JsonMessageConverter);
-        return factory;
+    public MessageConverter jsonMessageConverter() {
+        return new Jackson2JsonMessageConverter();
     }
 }

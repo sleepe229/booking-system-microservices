@@ -3,47 +3,65 @@ package com.hotel.service;
 import com.hotel.api.dto.*;
 import com.hotel.api.exception.ResourceNotFoundException;
 import com.hotel.config.RabbitMQConfig;
+import com.hotel.entity.Booking;
+import com.hotel.entity.Hotel;
 import com.hotel.events.BookingCancelledEvent;
 import com.hotel.events.BookingCreatedEvent;
+import com.hotel.repo.BookingRepository;
+import com.hotel.repo.HotelRepository;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.util.*;
-import java.util.concurrent.atomic.AtomicLong;
+import java.time.LocalDate;
+import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
 public class HotelService {
 
-    private final Map<Long, BookingResponse> bookings = new LinkedHashMap<>();
-    private final AtomicLong bookingIdCounter = new AtomicLong(1);
-    private final RabbitTemplate rabbitTemplate;  // НОВОЕ ПОЛЕ
+    private final BookingRepository bookingRepository;
+    private final HotelRepository hotelRepository;
+    private final RabbitTemplate rabbitTemplate;
 
-    public HotelService(RabbitTemplate rabbitTemplate) {
+    public HotelService(BookingRepository bookingRepository,
+                        HotelRepository hotelRepository,
+                        RabbitTemplate rabbitTemplate) {
+        this.bookingRepository = bookingRepository;
+        this.hotelRepository = hotelRepository;
         this.rabbitTemplate = rabbitTemplate;
     }
 
     public List<HotelSearchResponse> searchHotels(HotelSearchRequest request) {
-        return List.of(
-                new HotelSearchResponse(1L, "Grand Hotel", request.city(), "Main Street 1", 150.0, true),
-                new HotelSearchResponse(2L, "Budget Inn", request.city(), "Side Street 5", 80.0, true)
-        );
+        List<Hotel> hotels = hotelRepository.findByCityAndAvailableTrue(request.city());
+        return hotels.stream()
+                .map(h -> new HotelSearchResponse(
+                        h.getHotelId(),
+                        h.getName(),
+                        h.getCity(),
+                        h.getAddress(),
+                        h.getPricePerNight(),
+                        h.getAvailable()
+                ))
+                .collect(Collectors.toList());
     }
 
+    @Transactional
     public BookingResponse createBooking(BookingRequest request) {
-        long bookingId = bookingIdCounter.getAndIncrement();
-        BookingResponse booking = new BookingResponse(
-                bookingId,
-                request.hotelId(),
-                "CREATED",
-                request.customerName(),
-                request.customerEmail()
-        );
-        bookings.put(bookingId, booking);
+        Booking booking = new Booking();
+        booking.setHotelId(request.hotelId());
+        booking.setStatus("CREATED");
+        booking.setCustomerName(request.customerName());
+        booking.setCustomerEmail(request.customerEmail());
+        booking.setCheckIn(LocalDate.parse(request.checkIn()));
+        booking.setCheckOut(LocalDate.parse(request.checkOut()));
+        booking.setGuests(request.guests());
+
+        Booking saved = bookingRepository.save(booking);
 
         BookingCreatedEvent event = new BookingCreatedEvent(
-                bookingId,
+                saved.getBookingId(),
                 request.hotelId(),
                 request.customerName(),
                 request.customerEmail(),
@@ -56,26 +74,20 @@ public class HotelService {
                 event
         );
 
-        return booking;
+        return toResponse(saved);
     }
 
+    @Transactional
     public StatusResponse cancelBooking(CancelBookingRequest request) {
-        BookingResponse existing = bookings.get(request.bookingId());
-        if (existing == null) {
-            throw new ResourceNotFoundException("Booking", request.bookingId());
-        }
-        BookingResponse cancelled = new BookingResponse(
-                existing.getBookingId(),
-                existing.getHotelId(),
-                "CANCELLED",
-                existing.getCustomerName(),
-                existing.getCustomerEmail()
-        );
-        bookings.put(request.bookingId(), cancelled);
+        Booking booking = bookingRepository.findById(request.bookingId())
+                .orElseThrow(() -> new ResourceNotFoundException("Booking", request.bookingId()));
+
+        booking.setStatus("CANCELLED");
+        bookingRepository.save(booking);
 
         BookingCancelledEvent event = new BookingCancelledEvent(
                 request.bookingId(),
-                existing.getCustomerEmail()
+                booking.getCustomerEmail()
         );
         rabbitTemplate.convertAndSend(
                 RabbitMQConfig.EXCHANGE_NAME,
@@ -87,21 +99,23 @@ public class HotelService {
     }
 
     public BookingResponse getBooking(Long id) {
-        BookingResponse booking = bookings.get(id);
-        if (booking == null) {
-            throw new ResourceNotFoundException("Booking", id);
-        }
-        return booking;
+        Booking booking = bookingRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Booking", id));
+        return toResponse(booking);
     }
 
     public Page<BookingResponse> listBookings(int page, int size) {
-        List<BookingResponse> all = new ArrayList<>(bookings.values())
-                .stream()
-                .sorted(Comparator.comparing(BookingResponse::getBookingId))
-                .collect(Collectors.toList());
-        int start = Math.min(page * size, all.size());
-        int end = Math.min(start + size, all.size());
-        List<BookingResponse> content = all.subList(start, end);
-        return new PageImpl<>(content, PageRequest.of(page, size), all.size());
+        Page<Booking> bookingsPage = bookingRepository.findAll(PageRequest.of(page, size));
+        return bookingsPage.map(this::toResponse);
+    }
+
+    private BookingResponse toResponse(Booking b) {
+        return new BookingResponse(
+                b.getBookingId(),
+                b.getHotelId(),
+                b.getStatus(),
+                b.getCustomerName(),
+                b.getCustomerEmail()
+        );
     }
 }

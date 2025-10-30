@@ -9,4 +9,4 @@ public record BookingCreatedEvent(
         String customerEmail,
         String checkIn,
         String checkOut
-) implements Serializable {}
+) {}

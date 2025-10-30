@@ -6,4 +6,4 @@ public record PaymentConfirmedEvent(
         Long bookingId,
         Double amount,
         String paymentMethod
-) implements Serializable {}
+) {}

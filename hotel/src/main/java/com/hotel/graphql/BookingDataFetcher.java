@@ -28,8 +28,8 @@ public class BookingDataFetcher {
     }
 
     @DgsQuery
-    public BookingResponse bookingById(@InputArgument("id") Long id) {
-        return hotelService.getBooking(id);
+    public BookingResponse bookingById(@InputArgument("id") String id) {
+        return hotelService.getBooking(Long.parseLong(id));
     }
 
     @DgsQuery
@@ -49,8 +49,10 @@ public class BookingDataFetcher {
 
     @DgsMutation
     public BookingResponse createBooking(@InputArgument("input") Map<String, Object> input) {
+        Long hotelId = parseLong(input.get("hotelId"));
+
         BookingRequest request = new BookingRequest(
-                ((Number) input.get("hotelId")).longValue(),
+                hotelId,
                 (String) input.get("checkIn"),
                 (String) input.get("checkOut"),
                 (Integer) input.get("guests"),
@@ -62,16 +64,16 @@ public class BookingDataFetcher {
 
     @DgsMutation
     public StatusResponse cancelBooking(@InputArgument("input") Map<String, Object> input) {
-        CancelBookingRequest request = new CancelBookingRequest(
-                ((Number) input.get("bookingId")).longValue()
-        );
+        Long bookingId = parseLong(input.get("bookingId"));
+
+        CancelBookingRequest request = new CancelBookingRequest(bookingId);
         return hotelService.cancelBooking(request);
     }
 
     @DgsMutation
-    public BookingResponse updateBookingRoomType(@InputArgument("id") Long id,
+    public BookingResponse updateBookingRoomType(@InputArgument("id") String id,
                                                  @InputArgument("roomType") String roomType) {
-        BookingResponse existing = hotelService.getBooking(id);
+        BookingResponse existing = hotelService.getBooking(Long.parseLong(id));
         return existing;
     }
 
@@ -80,10 +82,19 @@ public class BookingDataFetcher {
         BookingResponse booking = dfe.getSource();
 
         Map<String, Object> hotel = new HashMap<>();
-        hotel.put("hotelId", booking.getHotelId());
+        hotel.put("hotelId", booking.getHotelId().toString());
         hotel.put("name", "Hotel Name");
         hotel.put("city", "City");
 
         return hotel;
+    }
+
+    private Long parseLong(Object value) {
+        if (value instanceof Number) {
+            return ((Number) value).longValue();
+        } else if (value instanceof String) {
+            return Long.parseLong((String) value);
+        }
+        throw new IllegalArgumentException("Cannot convert " + value + " to Long");
     }
 }

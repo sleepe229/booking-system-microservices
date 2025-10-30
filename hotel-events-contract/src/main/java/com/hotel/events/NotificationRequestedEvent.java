@@ -7,4 +7,4 @@ public record NotificationRequestedEvent(
         String subject,
         String message,
         String channel // EMAIL, SMS, PUSH
-) implements Serializable {}
+) {}
