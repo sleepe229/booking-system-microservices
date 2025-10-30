@@ -159,10 +159,15 @@ Available endpoints after startup:
 
 | Component               | URL                            | Description                      |
 |--------------------------|---------------------------------|----------------------------------|
-| Gateway API              | http://localhost:8080          | Main entrypoint for clients      |
+| Gateway API (Root)       | http://localhost:8080/api      | HATEOAS discovery endpoint       |
+| Gateway REST API         | http://localhost:8080/api/*    | REST endpoints (hotels, bookings)|
+| Gateway GraphQL          | http://localhost:8080/graphql  | GraphQL endpoint                 |
+| GraphiQL Playground      | http://localhost:8080/graphiql | Interactive GraphQL UI           |
+| Swagger UI               | http://localhost:8080/swagger-ui.html | REST API documentation    |
 | RabbitMQ Management UI   | http://localhost:15672         | Broker dashboard (guest/guest)   |
 | Audit Service            | http://localhost:8082          | Logs and reporting service       |
-| PostgreSQL (Audit DB)    | localhost:5432                 | Internal audit database          |
+| PostgreSQL (Gateway DB)  | localhost:5433                 | Gateway database (hotels, bookings) |
+| PostgreSQL (Audit DB)    | localhost:5432                 | Audit database (event logs)      |
 
 To stop:
 
@@ -213,4 +218,5 @@ This project is licensed under the **MIT License** — see the [LICENSE](./LICEN
 
 
 ---
+
 
