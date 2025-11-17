@@ -45,7 +45,7 @@ services:
       POSTGRES_USER: audit_user
       POSTGRES_PASSWORD: audit_pass
     ports:
-      - "5432:5432"
+      - "5434:5432"
     volumes:
       - postgres_audit_data:/var/lib/postgresql/data
     healthcheck:
@@ -95,6 +95,40 @@ services:
         condition: service_healthy
     ports:
       - "8082:8082"
+    networks:
+      - backend
+
+  discount-service:
+    build:
+      context: .
+      dockerfile: discount-analytics-service/Dockerfile
+    image: discount-analytics-service:latest
+    container_name: discount-analytics-service
+    ports:
+      - "8083:8083"  # HTTP порт (для health checks)
+      - "9091:9091"  # gRPC порт
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8083/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  booking-orchestrator:
+    build:
+      context: .
+      dockerfile: booking-orchestrator-service/Dockerfile
+    image: booking-orchestrator-service:latest
+    container_name: booking-orchestrator-service
+    environment:
+      - GRPC_CLIENT_DISCOUNT_SERVICE_ADDRESS=static://discount-service:9091
+      - GRPC_CLIENT_DISCOUNT_SERVICE_NEGOTIATION_TYPE=plaintext
+    depends_on:
+      discount-service:
+        condition: service_healthy
+    ports:
+      - "8084:8084"
     networks:
       - backend
 

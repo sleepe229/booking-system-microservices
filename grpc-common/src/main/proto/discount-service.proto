@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "com.hotel.grpc.discount";
+option java_outer_classname = "DiscountServiceProto";
+
+service DiscountService {
+  // Рассчитать скидку для бронирования
+  rpc CalculateDiscount(DiscountRequest) returns (DiscountResponse) {}
+
+  // Получить рекомендации для клиента (заглушка для аналитики)
+  rpc GetRecommendations(RecommendationRequest) returns (RecommendationResponse) {}
+}
+
+// Запрос на расчет скидки
+message DiscountRequest {
+  string booking_id = 1;
+  string user_id = 2;
+  string hotel_id = 3;
+  int32 nights = 4;
+  double base_price = 5;
+  bool is_loyal_customer = 6; // флаг лояльного клиента
+}
+
+// Ответ с информацией о скидке
+message DiscountResponse {
+  string booking_id = 1;
+  double discount_percentage = 2; // процент скидки (0-100)
+  double final_price = 3; // финальная цена после скидки
+  string discount_reason = 4; // причина скидки
+  bool applied = 5; // применена ли скидка
+}
+
+// Запрос рекомендаций
+message RecommendationRequest {
+  string user_id = 1;
+  string hotel_id = 2;
+}
+
+// Ответ с рекомендациями
+message RecommendationResponse {
+  repeated string recommended_hotel_ids = 1;
+  string message = 2; // сообщение для клиента
+}
