@@ -72,7 +72,8 @@ public class BookingDataFetcher {
                     (String) input.get("checkOut"),
                     (Integer) input.get("guests"),
                     (String) input.get("customerName"),
-                    (String) input.get("customerEmail")
+                    (String) input.get("customerEmail"),
+                    (String) input.get("userId")
             );
             return hotelService.createBooking(request);
         } catch (Exception e) {

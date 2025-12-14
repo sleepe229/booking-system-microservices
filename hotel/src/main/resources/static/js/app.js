@@ -1,35 +1,18 @@
 /**
- * Main App - инициализация и управление вкладками
+ * app.js - Инициализация приложения
  */
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Инициализация модулей
-    initBookings();
+    console.log('🚀 Application starting...');
 
-    // Управление вкладками
-    const navButtons = document.querySelectorAll('.nav-btn');
-    navButtons.forEach(btn => {
-        btn.addEventListener('click', () => {
-            const tabName = btn.dataset.tab;
+    // Инициализировать WebSocket и userId
+    WS.initialize();
 
-            // Скрыть все вкладки
-            document.querySelectorAll('.tab-content').forEach(tab => {
-                tab.classList.remove('active');
-            });
+    // Инициализировать форму
+    Bookings.setupFormHandler();
 
-            // Убрать активность с всех кнопок
-            navButtons.forEach(b => b.classList.remove('active'));
-
-            // Показать выбранную вкладку
-            document.getElementById(tabName).classList.add('active');
-            btn.classList.add('active');
-
-            // Загрузить данные при открытии аудит-вкладки
-            if (tabName === 'audit') {
-                loadAuditLogs();
-            }
-        });
-    });
+    // Установить значения дат по умолчанию
+    UI.setupDateDefaults();
 
     console.log('✅ Application initialized');
 });

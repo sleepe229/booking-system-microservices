@@ -39,7 +39,8 @@ public class BookingOrchestratorService {
     @RabbitListener(queues = "orchestrator-booking-created-queue")
     public void consumeBookingCreatedEvent(
             @Payload BookingCreatedEvent event,
-            @Header("guests") int guests) {
+            @Header("guests") int guests,
+            @Header("userId") String userId) {
 
         log.info("Получено событие BookingCreatedEvent: bookingId={}, hotelId={}, guests={}",
                 event.bookingId(), event.hotelId(), guests);
@@ -117,6 +118,7 @@ public class BookingOrchestratorService {
 
             // ← Получаем рекомендации (опционально)
             RecommendationRequest recRequest = RecommendationRequest.newBuilder()
+                    .setUserId(event.userId())
                     .setHotelId(event.hotelId())
                     .build();
 
@@ -239,7 +241,7 @@ public class BookingOrchestratorService {
             if (result.status() == BookingStatus.CONFIRMED) {
                 processedEvent = BookingProcessedEvent.confirmed(
                         result.bookingId(),
-                        null,  // ← userId нет, передаём null
+                        event.userId(),
                         event.hotelId(),
                         result.originalPrice(),
                         result.finalPrice(),
@@ -250,7 +252,7 @@ public class BookingOrchestratorService {
             } else {
                 processedEvent = BookingProcessedEvent.rejected(
                         result.bookingId(),
-                        null,  // ← userId нет, передаём null
+                        event.userId(),  // ← userId нет, передаём null
                         event.hotelId(),
                         result.originalPrice(),
                         result.rejectionReason()

@@ -4,7 +4,6 @@
 
 async function loadAuditLogs() {
     const filters = {
-        bookingId: document.getElementById('auditBookingId')?.value || null,
         eventType: document.getElementById('auditEventType').value || null
     };
 
@@ -26,37 +25,37 @@ function displayAuditLogs(logs) {
     }
 
     let html = `
-        <table>
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Event Type</th>
-                    <th>Timestamp</th>
-                    <th>Booking ID</th>
-                    <th>Customer Email</th>
-                    <th>Event Data</th>
-                </tr>
-            </thead>
-            <tbody>
-    `;
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Event Type</th>
+                        <th>Timestamp</th>
+                        <th>Booking ID</th>
+                        <th>Customer Email</th>
+                        <th>Event Data</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
 
     logs.forEach(log => {
         html += `
-            <tr>
-                <td>${log.id}</td>
-                <td>${log.eventType}</td>
-                <td>${new Date(log.timestamp).toLocaleString()}</td>
-                <td>${log.bookingId || '-'}</td>
-                <td>${log.customerEmail || '-'}</td>
-                <td><small>${log.eventData.substring(0, 50)}...</small></td>
-            </tr>
-        `;
+                <tr>
+                    <td>${log.id}</td>
+                    <td>${log.eventType}</td>
+                    <td>${new Date(log.timestamp).toLocaleString()}</td>
+                    <td>${log.bookingId || '-'}</td>
+                    <td>${log.customerEmail || '-'}</td>
+                    <td><small>${log.eventData?.substring(0, 50)}...</small></td>
+                </tr>
+            `;
     });
 
     html += `
-            </tbody>
-        </table>
-    `;
+                </tbody>
+            </table>
+        `;
 
     container.innerHTML = html;
 }
@@ -99,3 +98,4 @@ function exportAuditJSON() {
         link.click();
     });
 }
+

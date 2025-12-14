@@ -1,5 +1,6 @@
 package com.hotel.notification.websocket;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -10,6 +11,7 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -19,11 +21,12 @@ import java.util.concurrent.ConcurrentHashMap;
 public class NotificationWebSocketHandler extends TextWebSocketHandler {
 
     private static final Logger log = LoggerFactory.getLogger(NotificationWebSocketHandler.class);
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     private final Map<String, Set<WebSocketSession>> userSessions = new ConcurrentHashMap<>();
 
     @Override
-    public void afterConnectionEstablished(WebSocketSession session) {
+    public void afterConnectionEstablished(WebSocketSession session) throws Exception {
         String userId = extractUserId(session);
 
         if (userId == null || userId.isEmpty()) {
@@ -39,7 +42,7 @@ public class NotificationWebSocketHandler extends TextWebSocketHandler {
         log.info(" WebSocket подключение: userId={}, sessionId={}, активных пользователей: {}",
                 userId, session.getId(), userSessions.size());
 
-        sendMessage(session, "Подключено к системе уведомлений отеля");
+        sendConnectionMessage(session, userId);
     }
 
     @Override
@@ -121,6 +124,17 @@ public class NotificationWebSocketHandler extends TextWebSocketHandler {
 
         log.info(" Broadcast: отправлено {} сессиям", sent);
         return sent;
+    }
+
+    private void sendConnectionMessage(WebSocketSession session, String userId) throws Exception {
+        Map<String, Object> message = new HashMap<>();
+        message.put("type", "CONNECTED");
+        message.put("userId", userId);
+        message.put("message", "Вы успешно подключены к системе уведомлений отеля");
+        message.put("timestamp", System.currentTimeMillis());
+
+        String jsonMessage = objectMapper.writeValueAsString(message);
+        sendMessage(session, jsonMessage);
     }
 
     private boolean sendMessage(WebSocketSession session, String message) {

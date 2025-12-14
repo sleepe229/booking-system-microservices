@@ -29,12 +29,7 @@ public class NotificationListener {
         this.objectMapper = new ObjectMapper();
     }
 
-    @RabbitListener(
-            bindings = @QueueBinding(
-                    value = @Queue(name = "q.notification.orchestration", durable = "true"),
-                    exchange = @Exchange(name = "booking-orchestration-fanout", type = "fanout")
-            )
-    )
+    @RabbitListener(queues = "q.notification.orchestration")
     @Transactional
     public void handleBookingProcessed(BookingProcessedEvent event) {
         log.info(" NOTIFICATION: Получено событие для booking_id: {}, userId: {}",

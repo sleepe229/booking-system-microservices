@@ -42,3 +42,31 @@ secrets.yml
 .git-hooks/
 node_modules
 /.kotlin/
+
+# Jenkins
+jenkins_home/
+
+# Prometheus
+prometheus_data/
+
+# Grafana
+grafana_data/
+
+# Maven
+target/
+*.jar
+*.war
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+
+# Docker
+.docker
+
+# Logs
+*.log
+logs/

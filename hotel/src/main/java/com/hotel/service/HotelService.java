@@ -71,6 +71,7 @@ public class HotelService {
 
         BookingCreatedEvent event = new BookingCreatedEvent(
                 bookingId,
+                request.userId(),
                 request.hotelId(),
                 request.customerName(),
                 request.customerEmail(),
@@ -84,6 +85,7 @@ public class HotelService {
                 event,
                 message -> {
                     message.getMessageProperties().setHeader("guests", request.guests());
+                    message.getMessageProperties().setHeader("userId", request.userId());
                     message.getMessageProperties().setCorrelationId(Arrays.toString(bookingId.getBytes()));
                     return message;
                 }

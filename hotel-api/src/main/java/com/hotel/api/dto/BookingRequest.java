@@ -9,5 +9,6 @@ public record BookingRequest(
         @NotNull String checkOut,
         @NotNull Integer guests,
         @NotBlank String customerName,
-        @NotBlank String customerEmail
+        @NotBlank String customerEmail,
+        @NotBlank String userId
 ) {}

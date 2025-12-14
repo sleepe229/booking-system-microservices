@@ -3,129 +3,119 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hotel Booking System</title>
-    <link rel="stylesheet" href="/css/style.css">
+    <title>Hotel Booking</title>
+    <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-<nav class="navbar">
-    <div class="nav-container">
+
+<div class="container">
+    <div class="header">
         <h1>🏨 Hotel Booking System</h1>
-        <div class="nav-tabs">
-            <button class="nav-btn active" data-tab="bookings">Bookings</button>
-            <button class="nav-btn" data-tab="notifications">Notifications</button>
-            <button class="nav-btn" data-tab="audit">Audit Logs</button>
-        </div>
+        <p>Create your booking and get real-time price updates</p>
     </div>
-</nav>
 
-<!-- BOOKINGS TAB -->
-<div id="bookings" class="tab-content active">
-    <div class="container">
-        <h2>📋 Manage Bookings</h2>
+    <div class="content">
+        <!-- LEFT COLUMN: FORM -->
+        <div class="section">
+            <h2>📋 Create Booking</h2>
 
-        <!-- Create Booking Form -->
-        <div class="form-section">
-            <h3>Create New Booking</h3>
             <form id="bookingForm">
-                <input type="text" id="hotelId" placeholder="Hotel ID" required>
-                <input type="text" id="customerName" placeholder="Customer Name" required>
-                <input type="email" id="customerEmail" placeholder="Customer Email" required>
-                <input type="date" id="checkIn" required>
-                <input type="date" id="checkOut" required>
-                <input type="number" id="guests" placeholder="Guests" min="1" required>
-                <button type="submit" class="btn-primary">Create Booking</button>
+                <div class="form-group">
+                    <label for="hotelId">Hotel ID</label>
+                    <input type="text" id="hotelId" placeholder="e.g., hotel-luxury-2025" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="customerName">Full Name</label>
+                    <input type="text" id="customerName" placeholder="e.g., John Doe" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="customerEmail">Email</label>
+                    <input type="email" id="customerEmail" placeholder="e.g., john@example.com" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="checkIn">Check-in Date</label>
+                    <input type="date" id="checkIn" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="checkOut">Check-out Date</label>
+                    <input type="date" id="checkOut" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="guests">Number of Guests</label>
+                    <input type="number" id="guests" placeholder="1" min="1" max="10" required>
+                </div>
+
+                <button type="submit">💳 Create Booking</button>
             </form>
-            <div id="bookingStatus" class="status-message"></div>
+
+            <div id="formStatus" class="status-box"></div>
         </div>
 
-        <!-- List Bookings -->
-        <div class="form-section">
-            <h3>Your Bookings</h3>
-            <div class="pagination-controls">
-                <button class="btn-secondary" id="prevPage">← Previous</button>
-                <span id="pageInfo"></span>
-                <button class="btn-secondary" id="nextPage">Next →</button>
-            </div>
-            <div id="bookingsList" class="bookings-grid"></div>
-        </div>
+        <!-- RIGHT COLUMN: RESULT -->
+        <div class="section">
+            <h2>✨ Booking Result</h2>
 
-        <!-- Search Booking -->
-        <div class="form-section">
-            <h3>Search Booking</h3>
-            <div style="display: flex; gap: 10px;">
-                <input type="text" id="searchBookingId" placeholder="Enter Booking ID">
-                <button class="btn-primary" onclick="searchBooking()">Search</button>
+            <div class="ws-status" id="wsStatus">
+                <div class="ws-status-indicator"></div>
+                <span>WebSocket: Disconnected</span>
             </div>
-            <div id="searchResult"></div>
+
+            <div id="resultBox" class="result-box">
+                <h3>✅ Booking Confirmed!</h3>
+
+                <div class="result-item">
+                    <span class="result-label">Booking ID:</span>
+                    <span class="result-value" id="resultBookingId">-</span>
+                </div>
+
+                <div class="result-item">
+                    <span class="result-label">Hotel:</span>
+                    <span class="result-value" id="resultHotel">-</span>
+                </div>
+
+                <div class="result-item">
+                    <span class="result-label">Customer:</span>
+                    <span class="result-value" id="resultCustomer">-</span>
+                </div>
+
+                <div class="result-item">
+                    <span class="result-label">Check-in:</span>
+                    <span class="result-value" id="resultCheckIn">-</span>
+                </div>
+
+                <div class="result-item">
+                    <span class="result-label">Check-out:</span>
+                    <span class="result-value" id="resultCheckOut">-</span>
+                </div>
+
+                <div class="result-item">
+                    <span class="result-label">Guests:</span>
+                    <span class="result-value" id="resultGuests">-</span>
+                </div>
+
+                <div class="price-highlight">
+                    <div class="price" id="resultPrice">$0.00</div>
+                    <div class="discount" id="resultDiscount"></div>
+                </div>
+            </div>
         </div>
+    </div>
+
+    <div class="footer">
+        <small>💡 Real-time updates powered by WebSocket</small>
     </div>
 </div>
 
-<!-- NOTIFICATIONS TAB -->
-<div id="notifications" class="tab-content">
-    <div class="container">
-        <h2>🔔 Real-time Notifications</h2>
-
-        <div class="form-section">
-            <h3>Connect to WebSocket</h3>
-            <div style="display: flex; gap: 10px;">
-                <input type="text" id="userId" placeholder="Enter your User ID">
-                <button class="btn-primary" onclick="connectWebSocket()">Connect</button>
-                <button class="btn-secondary" onclick="disconnectWebSocket()">Disconnect</button>
-            </div>
-            <div id="wsStatus" class="status-box disconnected">Status: Disconnected</div>
-        </div>
-
-        <div class="form-section">
-            <h3>Incoming Notifications</h3>
-            <div id="notificationsList" class="notifications-container"></div>
-        </div>
-
-        <div class="form-section">
-            <h3>Broadcast Message (Admin)</h3>
-            <div style="display: flex; gap: 10px;">
-                <input type="text" id="broadcastMsg" placeholder="Message to broadcast">
-                <button class="btn-primary" onclick="broadcastMessage()">Send</button>
-            </div>
-        </div>
-
-        <div class="form-section">
-            <h3>WebSocket Stats</h3>
-            <div id="wsStats" class="stats-box"></div>
-        </div>
-    </div>
-</div>
-
-<!-- AUDIT TAB -->
-<div id="audit" class="tab-content">
-    <div class="container">
-        <h2>📊 Audit Logs</h2>
-
-        <div class="form-section">
-            <h3>Filter & Export</h3>
-            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px;">
-                <input type="date" id="auditStartDate" placeholder="Start Date">
-                <input type="date" id="auditEndDate" placeholder="End Date">
-                <input type="text" id="auditEventType" placeholder="Event Type (e.g. BOOKING_CREATED)">
-            </div>
-            <div style="display: flex; gap: 10px;">
-                <button class="btn-primary" onclick="loadAuditLogs()">Search Logs</button>
-                <button class="btn-secondary" onclick="exportAuditCSV()">📥 Export CSV</button>
-                <button class="btn-secondary" onclick="exportAuditJSON()">📥 Export JSON</button>
-            </div>
-        </div>
-
-        <div class="form-section">
-            <h3>Audit Log Entries</h3>
-            <div id="auditList" class="audit-table"></div>
-        </div>
-    </div>
-</div>
-
-<script src="/js/api.js"></script>
-<script src="/js/notifications.js"></script>
-<script src="/js/bookings.js"></script>
-<script src="/js/audit.js"></script>
-<script src="/js/app.js"></script>
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/websocket.js"></script>
+<script src="js/bookings.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/app.js"></script>
 </body>
 </html>
