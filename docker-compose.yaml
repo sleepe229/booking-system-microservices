@@ -160,11 +160,8 @@ services:
       - "50000:50000"
     environment:
       - JENKINS_OPTS=-Djenkins.install.runSetupWizard=false
-      - JENKINS_JAVA_OPTS=-Djenkins.security.ApiTokenGenerator.enabled=true
-      - JENKINS_DISABLE_REMEMBER_ME=false
     volumes:
       - jenkins_home:/var/jenkins_home
-      - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - backend
     depends_on:
