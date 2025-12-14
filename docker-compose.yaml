@@ -151,7 +151,9 @@ services:
     networks:
       - backend
   jenkins:
-    image: jenkins/jenkins:lts
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: jenkins
     ports:
       - "8081:8080"

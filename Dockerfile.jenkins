@@ -11,3 +11,9 @@ RUN apt-get update && \
     && rm -rf /var/lib/apt/lists/*
 
 USER jenkins
+
+RUN jenkins-plugin-cli --plugins \
+    docker-plugin:1.4.0 \
+    docker-workflow:580.vc0c340686b_58
+
+EXPOSE 8080 50000
