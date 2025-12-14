@@ -153,7 +153,7 @@ services:
   jenkins:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.jenkins
     container_name: jenkins
     ports:
       - "8081:8080"
