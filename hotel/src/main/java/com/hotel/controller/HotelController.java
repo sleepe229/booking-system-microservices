@@ -42,7 +42,7 @@ public class HotelController implements HotelApi {
 
     @Override
     public ResponseEntity<EntityModel<BookingResponse>> createBooking(BookingRequest request) {
-        BookingResponse created = hotelService.createBooking(request);
+        BookingResponse created = hotelService.createBooking(request); // теперь синхронно!
         EntityModel<BookingResponse> model = bookingAssembler.toModel(created);
         return ResponseEntity.created(model.getRequiredLink("self").toUri()).body(model);
     }
@@ -54,7 +54,7 @@ public class HotelController implements HotelApi {
     }
 
     @Override
-    public EntityModel<BookingResponse> getBooking(Long id) {
+    public EntityModel<BookingResponse> getBooking(String id) {
         BookingResponse booking = hotelService.getBooking(id);
         return bookingAssembler.toModel(booking);
     }

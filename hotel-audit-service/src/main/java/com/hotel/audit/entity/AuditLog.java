@@ -34,7 +34,7 @@ public class AuditLog {
     private String eventData;
 
     @Column(name = "booking_id")
-    private Long bookingId;
+    private String bookingId;
 
     @Column(name = "customer_email")
     private String customerEmail;
@@ -45,7 +45,7 @@ public class AuditLog {
 
     public AuditLog() {}
 
-    public AuditLog(String eventType, String eventData, Long bookingId, String customerEmail) {
+    public AuditLog(String eventType, String eventData, String bookingId, String customerEmail) {
         this.eventType = eventType;
         this.eventData = eventData;
         this.bookingId = bookingId;
@@ -84,11 +84,11 @@ public class AuditLog {
         this.eventData = eventData;
     }
 
-    public Long getBookingId() {
+    public String getBookingId() {
         return bookingId;
     }
 
-    public void setBookingId(Long bookingId) {
+    public void setBookingId(String bookingId) {
         this.bookingId = bookingId;
     }
 

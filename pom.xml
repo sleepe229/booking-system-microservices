@@ -18,6 +18,7 @@
     <module>grpc-common</module>
     <module>discount-analytics-service</module>
     <module>booking-orchestrator-service</module>
+    <module>booking-notification-service</module>
   </modules>
 
   <properties>

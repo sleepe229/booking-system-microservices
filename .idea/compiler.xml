@@ -11,11 +11,14 @@
         <module name="hotel-api" />
         <module name="audit-service" />
         <module name="booking-orchestrator-service" />
+        <module name="audit-service (1)" />
         <module name="hotel" />
         <module name="grpc-common" />
+        <module name="notification-service" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
+      <module name="booking-notification-service" target="21" />
       <module name="booking-orchestrator-service.main" target="17" />
       <module name="booking-orchestrator-service.test" target="17" />
       <module name="untitled" target="21" />
@@ -24,6 +27,8 @@
   <component name="JavacSettings">
     <option name="ADDITIONAL_OPTIONS_OVERRIDE">
       <module name="audit-service" options="-parameters" />
+      <module name="audit-service (1)" options="-parameters" />
+      <module name="booking-notification-service" options="-parameters" />
       <module name="booking-orchestrator-service" options="-parameters" />
       <module name="booking-orchestrator-service.main" options="-parameters" />
       <module name="booking-orchestrator-service.test" options="-parameters" />
@@ -32,6 +37,7 @@
       <module name="hotel" options="-parameters" />
       <module name="hotel-api" options="-parameters" />
       <module name="hotel-events-contract" options="-parameters" />
+      <module name="notification-service" options="-parameters" />
       <module name="untitled" options="-parameters" />
     </option>
   </component>

@@ -1,7 +1,7 @@
 package com.hotel.api.dto;
 
 public record HotelSearchResponse(
-        Long hotelId,
+        String hotelId,
         String name,
         String city,
         String address,

@@ -18,11 +18,11 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
 
     List<AuditLog> findByEventType(String eventType);
 
-    List<AuditLog> findByBookingId(Long bookingId);
+    List<AuditLog> findByBookingId(String bookingId);
 
     Page<AuditLog> findByEventType(String eventType, Pageable pageable);
 
-    Page<AuditLog> findByBookingId(Long bookingId, Pageable pageable);
+    Page<AuditLog> findByBookingId(String bookingId, Pageable pageable);
 
     Page<AuditLog> findByTimestampBetween(
             LocalDateTime start,

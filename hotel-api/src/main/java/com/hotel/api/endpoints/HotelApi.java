@@ -38,7 +38,7 @@ public interface HotelApi {
 
     @Operation(summary = "Получить бронирование по ID")
     @GetMapping("/api/bookings/{id}")
-    EntityModel<com.hotel.api.dto.BookingResponse> getBooking(@PathVariable("id") Long id);
+    EntityModel<com.hotel.api.dto.BookingResponse> getBooking(@PathVariable("id") String id);
 
     @Operation(summary = "Список бронирований (пагинация)")
     @GetMapping("/api/bookings")

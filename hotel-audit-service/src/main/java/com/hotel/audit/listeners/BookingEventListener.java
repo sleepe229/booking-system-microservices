@@ -11,59 +11,69 @@ import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 
 @Component
 public class BookingEventListener {
 
     private static final Logger log = LoggerFactory.getLogger(BookingEventListener.class);
-    private final AuditLogRepository auditLogRepository;
-    private final ObjectMapper objectMapper;
+    private final AuditLogRepository repo;
+    private final ObjectMapper mapper;
 
-    public BookingEventListener(AuditLogRepository auditLogRepository, ObjectMapper objectMapper) {
-        this.auditLogRepository = auditLogRepository;
-        this.objectMapper = objectMapper;
+    public BookingEventListener(AuditLogRepository repo, ObjectMapper mapper) {
+        this.repo = repo;
+        this.mapper = mapper;
     }
 
     @RabbitListener(queues = RabbitMQConfig.QUEUE_BOOKING_CREATED)
     public void onBookingCreated(BookingCreatedEvent event) {
-        log.info("Audit: booking created -> bookingId={}, hotelId={}, customer={}, email={}",
-                event.bookingId(), event.hotelId(), event.customerName(), event.customerEmail());
-        saveAuditLog("BOOKING_CREATED", event, event.bookingId(), event.customerEmail());
+        log.info("Audit: booking created -> {}", event);
+        save("BOOKING_CREATED", event, event.bookingId(), event.customerEmail());
     }
 
     @RabbitListener(queues = RabbitMQConfig.QUEUE_BOOKING_CANCELLED)
     public void onBookingCancelled(BookingCancelledEvent event) {
-        log.info("Audit: booking cancelled -> bookingId={}, customerEmail={}",
-                event.bookingId(), event.customerEmail());
-        saveAuditLog("BOOKING_CANCELLED", event, event.bookingId(), event.customerEmail());
+        log.info("Audit: booking cancelled -> {}", event);
+        save("BOOKING_CANCELLED", event, event.bookingId(), event.customerEmail());
     }
 
-    @RabbitListener(queues = "audit-booking-confirmed-queue")
-    public void onBookingConfirmed(BookingConfirmedEvent event) {
-        log.info("Audit: booking confirmed -> bookingId={}, finalPrice={}, discount={}",
-                event.bookingId(), event.finalPrice(), event.discount());
-        saveAuditLog("BOOKING_CONFIRMED", event, event.bookingId(), event.customerEmail());
+    @RabbitListener(queues = RabbitMQConfig.ORCHESTRATION_QUEUE_AUDIT)
+    public void onBookingProcessed(BookingProcessedEvent event) {
+
+        String time = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+                .withZone(ZoneId.systemDefault())
+                .format(Instant.ofEpochMilli(event.timestamp()));
+
+        log.info("AUDIT ORCHESTRATION: booking processed -> bookingId={}, status={}, time={}",
+                event.bookingId(), event.status(), time);
+
+        String type = event.status().equals("CONFIRMED")
+                ? "BOOKING_CONFIRMED"
+                : "BOOKING_REJECTED";
+
+        save(type, event, event.bookingId(), event.userId());
     }
 
-    @RabbitListener(queues = "audit-booking-rejected-queue")
-    public void onBookingRejected(BookingRejectedEvent event) {
-        log.info("Audit: booking rejected -> bookingId={}, reason={}",
-                event.bookingId(), event.reason());
-        saveAuditLog("BOOKING_REJECTED", event, event.bookingId(), event.customerEmail());
-    }
 
-    private void saveAuditLog(String eventType, Object event, Long bookingId, String customerEmail) {
+    private void save(String type, Object event, String id, String emailOrUserId) {
         try {
             AuditLog log = new AuditLog();
-            log.setEventType(eventType);
+            log.setEventType(type);
             log.setTimestamp(LocalDateTime.now());
-            log.setEventData(objectMapper.writeValueAsString(event));
-            log.setBookingId(bookingId);
-            log.setCustomerEmail(customerEmail);
-            auditLogRepository.save(log);
+            log.setBookingId(id);
+
+            if (emailOrUserId != null && !emailOrUserId.isEmpty()) {
+                log.setCustomerEmail(emailOrUserId);
+            }
+
+            log.setEventData(mapper.writeValueAsString(event));
+            repo.save(log);
+
         } catch (JsonProcessingException e) {
-            log.error("Failed to serialize event data", e);
+            log.error("Failed to serialize audit event", e);
         }
     }
 }

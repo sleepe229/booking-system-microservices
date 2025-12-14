@@ -3,6 +3,6 @@ package com.hotel.events;
 import java.io.Serializable;
 
 public record BookingCancelledEvent(
-        Long bookingId,
+        String bookingId,
         String customerEmail
 ){}

@@ -11,6 +11,8 @@ import com.netflix.graphql.dgs.DgsMutation;
 import com.netflix.graphql.dgs.DgsQuery;
 import com.netflix.graphql.dgs.InputArgument;
 import graphql.schema.DataFetchingEnvironment;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 
@@ -19,6 +21,8 @@ import java.util.Map;
 
 @DgsComponent
 public class BookingDataFetcher {
+
+    private static final Logger log = LoggerFactory.getLogger(BookingDataFetcher.class);
 
     private final HotelService hotelService;
 
@@ -29,11 +33,21 @@ public class BookingDataFetcher {
 
     @DgsQuery
     public BookingResponse bookingById(@InputArgument("id") String id) {
-        return hotelService.getBooking(Long.parseLong(id));
+        if (id == null || id.isEmpty()) {
+            throw new IllegalArgumentException("bookingId не может быть пустым");
+        }
+        return hotelService.getBooking(id);
     }
 
     @DgsQuery
     public Map<String, Object> bookings(@InputArgument("page") int page, @InputArgument("size") int size) {
+        if (page < 0) {
+            throw new IllegalArgumentException("page не может быть отрицательной");
+        }
+        if (size <= 0 || size > 100) {
+            throw new IllegalArgumentException("size должен быть в диапазоне 1-100");
+        }
+
         Page<BookingResponse> pageResult = hotelService.listBookings(page, size);
 
         Map<String, Object> result = new HashMap<>();
@@ -49,32 +63,54 @@ public class BookingDataFetcher {
 
     @DgsMutation
     public BookingResponse createBooking(@InputArgument("input") Map<String, Object> input) {
-        Long hotelId = parseLong(input.get("hotelId"));
+        try {
+            String hotelId = parseString(input.get("hotelId"));
 
-        BookingRequest request = new BookingRequest(
-                hotelId,
-                (String) input.get("checkIn"),
-                (String) input.get("checkOut"),
-                (Integer) input.get("guests"),
-                (String) input.get("customerName"),
-                (String) input.get("customerEmail")
-        );
-        return hotelService.createBooking(request);
+            BookingRequest request = new BookingRequest(
+                    hotelId,
+                    (String) input.get("checkIn"),
+                    (String) input.get("checkOut"),
+                    (Integer) input.get("guests"),
+                    (String) input.get("customerName"),
+                    (String) input.get("customerEmail")
+            );
+            return hotelService.createBooking(request);
+        } catch (Exception e) {
+            log.error("Error creating booking: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to create booking: " + e.getMessage(), e);
+        }
     }
 
     @DgsMutation
     public StatusResponse cancelBooking(@InputArgument("input") Map<String, Object> input) {
-        Long bookingId = parseLong(input.get("bookingId"));
+        try {
+            String bookingId = parseString(input.get("bookingId"));
 
-        CancelBookingRequest request = new CancelBookingRequest(bookingId);
-        return hotelService.cancelBooking(request);
+            if (bookingId == null || bookingId.isEmpty()) {
+                throw new IllegalArgumentException("bookingId не может быть пустым");
+            }
+
+            CancelBookingRequest request = new CancelBookingRequest(bookingId);
+            return hotelService.cancelBooking(request);
+        } catch (Exception e) {
+            log.error("Error cancelling booking: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to cancel booking: " + e.getMessage(), e);
+        }
     }
 
     @DgsMutation
     public BookingResponse updateBookingRoomType(@InputArgument("id") String id,
                                                  @InputArgument("roomType") String roomType) {
-        BookingResponse existing = hotelService.getBooking(Long.parseLong(id));
-        return existing;
+        try {
+            if (id == null || id.isEmpty()) {
+                throw new IllegalArgumentException("bookingId не может быть пустым");
+            }
+
+            return hotelService.getBooking(id);
+        } catch (Exception e) {
+            log.error("Error updating booking room type: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to update booking: " + e.getMessage(), e);
+        }
     }
 
     @DgsData(parentType = "Booking", field = "hotel")
@@ -82,19 +118,19 @@ public class BookingDataFetcher {
         BookingResponse booking = dfe.getSource();
 
         Map<String, Object> hotel = new HashMap<>();
-        hotel.put("hotelId", booking.getHotelId().toString());
+        hotel.put("hotelId", booking.getHotelId());
         hotel.put("name", "Hotel Name");
         hotel.put("city", "City");
 
         return hotel;
     }
 
-    private Long parseLong(Object value) {
-        if (value instanceof Number) {
-            return ((Number) value).longValue();
-        } else if (value instanceof String) {
-            return Long.parseLong((String) value);
-        }
-        throw new IllegalArgumentException("Cannot convert " + value + " to Long");
+    private String parseString(Object value) {
+        return switch (value) {
+            case null -> null;
+            case String s -> s;
+            default -> value.toString();
+        };
     }
+
 }

@@ -66,7 +66,7 @@ public class AuditController {
 
     @GetMapping("/logs")
     public List<AuditLog> getLogs(
-            @RequestParam(required = false) Long bookingId,
+            @RequestParam(required = false) String bookingId,
             @RequestParam(required = false) String eventType
     ) {
         if (bookingId != null) {
