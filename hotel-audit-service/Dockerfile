@@ -1,11 +1,12 @@
 FROM bellsoft/liberica-openjdk-alpine:21 AS builder
 WORKDIR /application
 
+RUN apk add --no-cache maven
+
 COPY . .
 
-RUN --mount=type=cache,target=/root/.m2 \
-    chmod +x mvnw && \
-    ./mvnw clean install -DskipTests -Dmaven.compiler.parameters=true
+RUN mvn clean install -DskipTests -Dmaven.complier.parameters=True
+
 FROM bellsoft/liberica-openjre-alpine:21 AS layers
 WORKDIR /application
 
