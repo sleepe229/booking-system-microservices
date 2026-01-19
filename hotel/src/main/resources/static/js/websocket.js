@@ -1,14 +1,15 @@
 /**
- * websocket.js - Управление WebSocket подключением
+ * websocket.js - WebSocket менеджер для real-time обновлений
  */
 
 class WebSocketManager {
     constructor() {
         this.socket = null;
+        this.reconnectTimeout = null;
     }
 
     /**
-     * Инициализировать userId и подключиться к WebSocket
+     * Инициализация userId и подключение
      */
     initialize() {
         this.initializeUserId();
@@ -16,7 +17,7 @@ class WebSocketManager {
     }
 
     /**
-     * Генерирование или восстановление userId
+     * Генерация или восстановление userId
      */
     initializeUserId() {
         let userId = localStorage.getItem('bookingUserId');
@@ -29,7 +30,7 @@ class WebSocketManager {
     }
 
     /**
-     * Подключиться к WebSocket
+     * Подключение к WebSocket
      */
     connect() {
         const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -44,6 +45,12 @@ class WebSocketManager {
                 STATE.wsConnected = true;
                 UI.updateWebSocketStatus(true);
                 console.log('✅ WebSocket connected');
+
+                // Очищаем таймер переподключения
+                if (this.reconnectTimeout) {
+                    clearTimeout(this.reconnectTimeout);
+                    this.reconnectTimeout = null;
+                }
             };
 
             this.socket.onmessage = (event) => {
@@ -54,8 +61,9 @@ class WebSocketManager {
                 STATE.wsConnected = false;
                 UI.updateWebSocketStatus(false);
                 console.log('❌ WebSocket disconnected');
+
                 // Переподключение через 5 секунд
-                setTimeout(() => this.connect(), 5000);
+                this.reconnectTimeout = setTimeout(() => this.connect(), 5000);
             };
 
             this.socket.onerror = (error) => {
@@ -65,21 +73,32 @@ class WebSocketManager {
         } catch (e) {
             console.error('❌ WebSocket initialization error:', e);
             UI.updateWebSocketStatus(false);
+
+            // Переподключение через 5 секунд
+            this.reconnectTimeout = setTimeout(() => this.connect(), 5000);
         }
     }
 
     /**
-     * Обработка входящего WebSocket сообщения
+     * ✅ Обработка WebSocket сообщений
      */
     handleMessage(data) {
         try {
             const message = JSON.parse(data);
             console.log('📨 WebSocket message received:', message);
 
-            // Проверяем что это сообщение для нашего бронирования
-            if (message.type === 'BOOKING_UPDATE' && message.bookingId === STATE.pendingBookingId) {
-                console.log('✅ Получено обновление для нашего бронирования');
-                UI.displayBookingResult(message);
+            // Игнорируем сообщение о подключении
+            if (message.type === 'CONNECTED') {
+                console.log('✅ WebSocket handshake complete');
+                return;
+            }
+
+            // ✅ КЛЮЧЕВОЕ: обрабатываем обновление цены
+            if (message.type === 'BOOKING_UPDATE') {
+                if (STATE.currentBooking && message.bookingId === STATE.currentBooking.bookingId) {
+                    console.log('💰 Получено обновление цены для бронирования:', message.bookingId);
+                    handlePriceUpdate(message);
+                }
             }
         } catch (e) {
             console.error('❌ Error parsing WebSocket message:', e);
@@ -87,9 +106,14 @@ class WebSocketManager {
     }
 
     /**
-     * Отключиться от WebSocket
+     * Отключение
      */
     disconnect() {
+        if (this.reconnectTimeout) {
+            clearTimeout(this.reconnectTimeout);
+            this.reconnectTimeout = null;
+        }
+
         if (this.socket) {
             this.socket.close();
             this.socket = null;
@@ -97,5 +121,5 @@ class WebSocketManager {
     }
 }
 
-// Инстанс WebSocket менеджера
+// Глобальный инстанс
 const WS = new WebSocketManager();

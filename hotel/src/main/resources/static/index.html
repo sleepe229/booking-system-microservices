@@ -1,120 +1,391 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hotel Booking</title>
+    <title>Hotel Booking System</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-
-<div class="container">
-    <div class="header">
-        <h1>🏨 Hotel Booking System</h1>
-        <p>Create your booking and get real-time price updates</p>
-    </div>
-
-    <div class="content">
-        <!-- LEFT COLUMN: FORM -->
-        <div class="section">
-            <h2>📋 Create Booking</h2>
-
-            <form id="bookingForm">
-                <div class="form-group">
-                    <label for="hotelId">Hotel ID</label>
-                    <input type="text" id="hotelId" placeholder="e.g., hotel-luxury-2025" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="customerName">Full Name</label>
-                    <input type="text" id="customerName" placeholder="e.g., John Doe" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="customerEmail">Email</label>
-                    <input type="email" id="customerEmail" placeholder="e.g., john@example.com" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="checkIn">Check-in Date</label>
-                    <input type="date" id="checkIn" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="checkOut">Check-out Date</label>
-                    <input type="date" id="checkOut" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="guests">Number of Guests</label>
-                    <input type="number" id="guests" placeholder="1" min="1" max="10" required>
-                </div>
-
-                <button type="submit">💳 Create Booking</button>
-            </form>
-
-            <div id="formStatus" class="status-box"></div>
-        </div>
-
-        <!-- RIGHT COLUMN: RESULT -->
-        <div class="section">
-            <h2>✨ Booking Result</h2>
-
-            <div class="ws-status" id="wsStatus">
-                <div class="ws-status-indicator"></div>
-                <span>WebSocket: Disconnected</span>
-            </div>
-
-            <div id="resultBox" class="result-box">
-                <h3>✅ Booking Confirmed!</h3>
-
-                <div class="result-item">
-                    <span class="result-label">Booking ID:</span>
-                    <span class="result-value" id="resultBookingId">-</span>
-                </div>
-
-                <div class="result-item">
-                    <span class="result-label">Hotel:</span>
-                    <span class="result-value" id="resultHotel">-</span>
-                </div>
-
-                <div class="result-item">
-                    <span class="result-label">Customer:</span>
-                    <span class="result-value" id="resultCustomer">-</span>
-                </div>
-
-                <div class="result-item">
-                    <span class="result-label">Check-in:</span>
-                    <span class="result-value" id="resultCheckIn">-</span>
-                </div>
-
-                <div class="result-item">
-                    <span class="result-label">Check-out:</span>
-                    <span class="result-value" id="resultCheckOut">-</span>
-                </div>
-
-                <div class="result-item">
-                    <span class="result-label">Guests:</span>
-                    <span class="result-value" id="resultGuests">-</span>
-                </div>
-
-                <div class="price-highlight">
-                    <div class="price" id="resultPrice">$0.00</div>
-                    <div class="discount" id="resultDiscount"></div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="footer">
-        <small>💡 Real-time updates powered by WebSocket</small>
-    </div>
+<!-- ✅ ПЕРЕКЛЮЧАТЕЛЬ РЕЖИМОВ -->
+<div class="mode-switcher">
+    <button
+            id="switchToAudit"
+            class="mode-btn"
+            onclick="toggleMode()"
+            title="Switch to Audit Dashboard"
+    >
+        <span class="mode-icon">📊</span>
+        <span class="mode-text">Audit</span>
+    </button>
 </div>
 
+<!-- ОСНОВНОЙ ЭКРАН БРОНИРОВАНИЯ -->
+<div id="bookingScreen" class="screen active">
+    <header class="header">
+        <div class="container">
+            <h1>🏨 Hotel Booking System</h1>
+            <div class="header-actions">
+                <div id="wsStatus" class="ws-status">
+                    <span>⏳ Connecting...</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- SEARCH FILTERS -->
+        <section class="search-section">
+            <h2>🔍 Find Your Perfect Hotel</h2>
+            <form id="searchForm" class="search-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="searchCity">City</label>
+                        <div class="autocomplete-wrapper">
+                            <input
+                                    type="text"
+                                    id="searchCity"
+                                    placeholder="Start typing city name..."
+                                    autocomplete="off"
+                                    required
+                            >
+                            <div id="citySuggestions" class="autocomplete-dropdown"></div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="searchCheckIn">Check-in</label>
+                        <input type="date" id="searchCheckIn" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="searchCheckOut">Check-out</label>
+                        <input type="date" id="searchCheckOut" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="searchGuests">Guests</label>
+                        <input type="number" id="searchGuests" min="1" max="10" value="2" required>
+                    </div>
+                    <button type="submit" class="btn-search">Search</button>
+                </div>
+            </form>
+        </section>
+
+        <!-- HOTELS GRID -->
+        <section class="hotels-section">
+            <div class="section-header">
+                <h2>Available Hotels</h2>
+                <p id="hotelsCount">Loading...</p>
+            </div>
+
+            <div id="loadingHotels" class="loading-state" style="display: none;">
+                <div class="spinner"></div>
+                <p>Searching hotels...</p>
+            </div>
+
+            <div id="noHotels" class="empty-state" style="display: none;">
+                <div class="empty-icon">🏨</div>
+                <h3>No hotels found</h3>
+                <p>Try adjusting your search criteria</p>
+            </div>
+
+            <div id="hotelsGrid" class="hotels-grid"></div>
+        </section>
+    </main>
+
+    <!-- BOOKING MODAL -->
+    <div id="bookingModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeModal()">&times;</span>
+
+            <!-- ШАГ 1: Ввод данных -->
+            <div id="step1" class="booking-step">
+                <h2>📝 Complete Your Booking</h2>
+
+                <div class="hotel-summary">
+                    <h3 id="modalHotelName"></h3>
+                    <p id="modalHotelLocation"></p>
+                    <p id="modalHotelPrice"></p>
+                </div>
+
+                <form id="bookingForm" class="booking-form" onsubmit="submitBooking(event)">
+                    <div class="form-group">
+                        <label for="customerName">Full Name *</label>
+                        <input type="text" id="customerName" placeholder="John Doe" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="customerEmail">Email *</label>
+                        <input type="email" id="customerEmail" placeholder="john@example.com" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="customerPhone">Phone *</label>
+                        <input type="tel" id="customerPhone" placeholder="+7 (999) 123-45-67" required>
+                    </div>
+
+                    <div class="booking-details">
+                        <div class="detail-row">
+                            <span>Check-in:</span>
+                            <span id="modalCheckIn"></span>
+                        </div>
+                        <div class="detail-row">
+                            <span>Check-out:</span>
+                            <span id="modalCheckOut"></span>
+                        </div>
+                        <div class="detail-row">
+                            <span>Guests:</span>
+                            <span id="modalGuests"></span>
+                        </div>
+                        <div class="detail-row">
+                            <span>Total Price:</span>
+                            <span id="modalTotalPrice"></span>
+                        </div>
+                    </div>
+
+                    <div class="modal-actions">
+                        <button type="button" class="btn-secondary" onclick="closeModal()">
+                            Cancel
+                        </button>
+                        <button type="submit" class="btn-primary">
+                            Confirm Booking
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- ШАГ 2: Обработка букинга -->
+            <div id="step2" class="booking-step" style="display: none;">
+                <div class="processing-state">
+                    <div class="spinner-large"></div>
+                    <h3>Processing your booking...</h3>
+                    <p>Calculating final price and checking availability...</p>
+                </div>
+            </div>
+
+            <!-- ⭐ ШАГ 3: ПОКАЗ ФИНАЛЬНОЙ ЦЕНЫ + ПОДТВЕРЖДЕНИЕ -->
+            <div id="step3" class="booking-step" style="display: none;">
+                <h2>💰 Price Confirmation</h2>
+
+                <div class="booking-details">
+                    <div class="detail-row">
+                        <span>Booking ID:</span>
+                        <span id="confirmBookingId" class="booking-id"></span>
+                    </div>
+                    <div class="detail-row">
+                        <span>Original Price:</span>
+                        <span id="confirmOriginalPrice"></span>
+                    </div>
+                    <div class="detail-row" id="discountRow" style="display: none;">
+                        <span>Discount:</span>
+                        <span id="confirmDiscount" style="color: var(--success); font-weight: 700;"></span>
+                    </div>
+                    <div class="detail-row" style="border-top: 2px solid var(--border); padding-top: 1rem; margin-top: 1rem;">
+                        <span style="font-size: 1.1rem; font-weight: 700;">Final Price:</span>
+                        <span id="confirmFinalPrice" style="font-size: 1.5rem; font-weight: 700; color: var(--success);"></span>
+                    </div>
+                </div>
+
+                <div id="priceWaitingState" class="processing-state" style="padding: 2rem 0;">
+                    <div class="spinner"></div>
+                    <p>Calculating final price...</p>
+                </div>
+
+                <div id="priceConfirmActions" class="modal-actions" style="display: none;">
+                    <button type="button" class="btn-secondary" onclick="cancelPayment()">
+                        ❌ Cancel
+                    </button>
+                    <button type="button" class="btn-success" onclick="confirmPayment()">
+                        💳 Pay Now
+                    </button>
+                </div>
+            </div>
+
+            <!-- ШАГ 4: Обработка оплаты -->
+            <div id="step4" class="booking-step" style="display: none;">
+                <div class="processing-state">
+                    <div class="payment-loader"></div>
+                    <h3>Processing payment...</h3>
+                    <p>Please wait, this may take a few seconds...</p>
+                </div>
+            </div>
+
+            <!-- ШАГ 5: Подтверждение -->
+            <div id="step5" class="booking-step" style="display: none;">
+                <div class="success-icon">
+                    <div class="success-checkmark">
+                        <div class="check-icon">
+                            <span class="icon-line line-tip"></span>
+                            <span class="icon-line line-long"></span>
+                            <div class="icon-circle"></div>
+                            <div class="icon-fix"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <h2 style="text-align: center; color: var(--success);">
+                    🎉 Payment Successful!
+                </h2>
+
+                <div class="confirmed-details">
+                    <div class="detail-row">
+                        <span>Booking ID:</span>
+                        <span id="confirmedBookingId" class="booking-id"></span>
+                    </div>
+                    <div class="detail-row">
+                        <span>Hotel:</span>
+                        <span id="confirmedHotelName"></span>
+                    </div>
+                    <div class="detail-row">
+                        <span>Check-in:</span>
+                        <span id="confirmedCheckIn"></span>
+                    </div>
+                    <div class="detail-row">
+                        <span>Check-out:</span>
+                        <span id="confirmedCheckOut"></span>
+                    </div>
+                    <div class="detail-row">
+                        <span>Customer:</span>
+                        <span id="confirmedCustomerName"></span>
+                    </div>
+
+                    <div class="price-summary">
+                        <p class="original-price">
+                            Original Price: <span id="confirmedOriginalPrice"></span>
+                        </p>
+                        <p class="final-price" id="confirmedFinalPrice"></p>
+                        <span class="discount-badge" id="confirmedDiscount"></span>
+                    </div>
+                </div>
+
+                <div id="recommendationsSection" style="display: none;">
+                    <h3>🌟 You might also like:</h3>
+                    <div id="recommendationsGrid" class="recommendations-grid"></div>
+                </div>
+
+                <div class="modal-actions">
+                    <button class="btn-success" onclick="closeModal()" style="width: 100%;">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- ✅ ЭКРАН АУДИТА -->
+<div id="auditScreen" class="screen">
+    <header class="header audit-header">
+        <div class="container">
+            <h1>📊 Audit Dashboard</h1>
+            <div class="header-actions">
+                <button class="btn-export" onclick="exportAuditCSV()">
+                    📥 Export CSV
+                </button>
+                <button class="btn-export" onclick="exportAuditJSON()">
+                    📄 Export JSON
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- ФИЛЬТРЫ -->
+        <section class="audit-filters">
+            <div class="filters-row">
+                <div class="form-group">
+                    <label for="auditEventType">Event Type</label>
+                    <select id="auditEventType" onchange="loadAuditLogs()">
+                        <option value="">All Events</option>
+                        <option value="BOOKING_CREATED">Created</option>
+                        <option value="BOOKING_CONFIRMED">Confirmed</option>
+                        <option value="BOOKING_PAID">Paid</option>
+                        <option value="BOOKING_CANCELLED">Cancelled</option>
+                        <option value="BOOKING_REJECTED">Rejected</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="auditStartDate">Start Date</label>
+                    <input type="date" id="auditStartDate" onchange="loadAuditLogs()">
+                </div>
+
+                <div class="form-group">
+                    <label for="auditEndDate">End Date</label>
+                    <input type="date" id="auditEndDate" onchange="loadAuditLogs()">
+                </div>
+
+                <div class="form-group">
+                    <label for="auditBookingId">Booking ID</label>
+                    <input
+                            type="text"
+                            id="auditBookingId"
+                            placeholder="Search by booking ID..."
+                            onchange="loadAuditLogs()"
+                    >
+                </div>
+
+                <button class="btn-primary" onclick="loadAuditLogs()">
+                    🔍 Filter
+                </button>
+                <button class="btn-secondary" onclick="clearAuditFilters()">
+                    🔄 Reset
+                </button>
+            </div>
+        </section>
+
+        <!-- СТАТИСТИКА -->
+        <section class="audit-stats">
+            <div class="stat-card">
+                <div class="stat-icon">📝</div>
+                <div class="stat-content">
+                    <div class="stat-value" id="statTotal">0</div>
+                    <div class="stat-label">Total Events</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">✅</div>
+                <div class="stat-content">
+                    <div class="stat-value" id="statConfirmed">0</div>
+                    <div class="stat-label">Confirmed</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">💳</div>
+                <div class="stat-content">
+                    <div class="stat-value" id="statPaid">0</div>
+                    <div class="stat-label">Paid</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">❌</div>
+                <div class="stat-content">
+                    <div class="stat-value" id="statCancelled">0</div>
+                    <div class="stat-label">Cancelled</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ТАБЛИЦА ЛОГОВ -->
+        <section class="audit-logs-section">
+            <div id="auditLoading" class="loading-state" style="display: none;">
+                <div class="spinner"></div>
+                <p>Loading audit logs...</p>
+            </div>
+
+            <div id="auditList" class="audit-logs"></div>
+        </section>
+    </main>
+</div>
+
+<!-- Scripts -->
 <script src="js/config.js"></script>
 <script src="js/api.js"></script>
 <script src="js/websocket.js"></script>
+<script src="js/autocomplete.js"></script>
+<script src="js/hotels.js"></script>
 <script src="js/bookings.js"></script>
+<script src="js/audit.js"></script>  <!-- ✅ НОВЫЙ -->
 <script src="js/ui.js"></script>
 <script src="js/app.js"></script>
 </body>

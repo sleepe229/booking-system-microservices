@@ -12,6 +12,8 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @Tag(name = "gateway", description = "API для поиска и бронирования отелей (HAL)")
 @ApiResponses({
         @ApiResponse(responseCode = "400", description = "Ошибка валидации",
@@ -26,6 +28,14 @@ public interface HotelApi {
     @Operation(summary = "Поиск доступных отелей")
     @PostMapping(value = "/api/hotels/search", consumes = MediaType.APPLICATION_JSON_VALUE)
     CollectionModel<EntityModel<com.hotel.api.dto.HotelSearchResponse>> searchHotels(@Valid @RequestBody com.hotel.api.dto.HotelSearchRequest request);
+
+    @Operation(summary = "Получить список городов для autocomplete")
+    @GetMapping("/api/hotels/cities")
+    ResponseEntity<List<String>> getCities(@RequestParam(required = false) String query);
+
+    @Operation(summary = "Оплатить бронирование")
+    @PostMapping(value = "/api/bookings/pay", consumes = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<EntityModel<com.hotel.api.dto.BookingResponse>> payBooking(@Valid @RequestBody com.hotel.api.dto.PaymentRequest request);
 
     @Operation(summary = "Создать бронирование")
     @PostMapping(value = "/api/bookings", consumes = MediaType.APPLICATION_JSON_VALUE)

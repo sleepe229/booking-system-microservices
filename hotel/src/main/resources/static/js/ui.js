@@ -1,69 +1,52 @@
 /**
- * ui.js - Управление интерфейсом и отображением данных
+ * ui.js - Утилиты для UI
  */
 
 const UI = {
     /**
-     * Обновить статус WebSocket
+     * Обновление статуса WebSocket
      */
     updateWebSocketStatus(connected) {
         const wsStatus = document.getElementById('wsStatus');
-        const text = wsStatus.querySelector('span');
+        const span = wsStatus.querySelector('span');
 
         if (connected) {
             wsStatus.classList.add('connected');
-            text.textContent = '✅ WebSocket: Connected';
+            span.textContent = '✅ Connected';
         } else {
             wsStatus.classList.remove('connected');
-            text.textContent = '⏳ WebSocket: Connecting...';
+            span.textContent = '⏳ Connecting...';
         }
     },
 
     /**
-     * Показать статус сообщение
+     * ✅ Показать toast уведомление
      */
-    showStatus(message, type) {
-        const statusBox = document.getElementById('formStatus');
-        statusBox.textContent = message;
-        statusBox.className = `status-box ${type} show`;
-
-        if (type !== 'pending') {
-            setTimeout(() => {
-                statusBox.classList.remove('show');
-            }, 5000);
+    showNotification(message, type = 'info') {
+        // Удаляем старые уведомления
+        const existing = document.querySelector('.toast-notification');
+        if (existing) {
+            existing.remove();
         }
+
+        const toast = document.createElement('div');
+        toast.className = `toast-notification toast-${type}`;
+        toast.textContent = message;
+
+        document.body.appendChild(toast);
+
+        // Показываем с анимацией
+        setTimeout(() => toast.classList.add('show'), 10);
+
+        // Убираем через 4 секунды
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => toast.remove(), 300);
+        }, 4000);
     },
 
     /**
-     * Отобразить результат бронирования
-     */
-    displayBookingResult(data) {
-        const resultBox = document.getElementById('resultBox');
-
-        // Заполняем данные
-        document.getElementById('resultBookingId').textContent = STATE.currentBooking.bookingId;
-        document.getElementById('resultHotel').textContent = STATE.currentBooking.hotelId;
-        document.getElementById('resultCustomer').textContent = STATE.currentBooking.customerName;
-        document.getElementById('resultCheckIn').textContent = STATE.currentBooking.checkIn;
-        document.getElementById('resultCheckOut').textContent = STATE.currentBooking.checkOut;
-        document.getElementById('resultGuests').textContent = STATE.currentBooking.guests;
-
-        // Финальная цена
-        const finalPrice = data.finalPrice || 0;
-        document.getElementById('resultPrice').textContent = `$${finalPrice.toFixed(2)}`;
-
-        // Скидка
-        if (data.discountPercentage && data.discountPercentage > 0) {
-            document.getElementById('resultDiscount').textContent =
-                `🎁 Discount: ${data.discountPercentage}%`;
-        }
-
-        resultBox.classList.add('show');
-        this.showStatus('✅ Booking confirmed with final price!', 'success');
-    },
-
-    /**
-     * Установить значения дат по умолчанию
+     * Установка дат по умолчанию
      */
     setupDateDefaults() {
         const today = new Date();
@@ -72,7 +55,10 @@ const UI = {
 
         const formatDate = (date) => date.toISOString().split('T')[0];
 
-        document.getElementById('checkIn').value = formatDate(today);
-        document.getElementById('checkOut').value = formatDate(tomorrow);
+        document.getElementById('searchCheckIn').value = formatDate(today);
+        document.getElementById('searchCheckOut').value = formatDate(tomorrow);
+
+        STATE.searchParams.checkIn = formatDate(today);
+        STATE.searchParams.checkOut = formatDate(tomorrow);
     }
 };

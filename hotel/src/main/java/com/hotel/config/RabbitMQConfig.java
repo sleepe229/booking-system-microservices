@@ -13,6 +13,7 @@ public class RabbitMQConfig {
     public static final String EXCHANGE_NAME = "hotel-bookings-exchange";
     public static final String ROUTING_KEY_BOOKING_CREATED = "booking.created";
     public static final String ROUTING_KEY_BOOKING_CANCELLED = "booking.cancelled";
+    public static final String ROUTING_KEY_BOOKING_PAID = "booking.paid";
 
     public static final String DLQ_EXCHANGE = "hotel-bookings-dlx";
     public static final String DLQ_BOOKING_CREATED = "dlq-booking-created";

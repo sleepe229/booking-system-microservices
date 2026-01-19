@@ -57,6 +57,14 @@ public class BookingEventListener {
         save(type, event, event.bookingId(), event.userId());
     }
 
+    @RabbitListener(queues = RabbitMQConfig.QUEUE_BOOKING_PAID)
+    public void onBookingPaid(BookingPaidEvent event) {
+        log.info("💳 Audit: booking paid -> bookingId={}, amount={}, method={}",
+                event.bookingId(), event.finalPrice(), event.paymentMethod());
+        save("BOOKING_PAID", event, event.bookingId(), event.customerEmail());
+    }
+
+
 
     private void save(String type, Object event, String id, String emailOrUserId) {
         try {

@@ -41,10 +41,23 @@ public class HotelController implements HotelApi {
     }
 
     @Override
+    public ResponseEntity<List<String>> getCities(String query) {
+        List<String> cities = hotelService.searchCities(query);
+        return ResponseEntity.ok(cities);
+    }
+
+    @Override
     public ResponseEntity<EntityModel<BookingResponse>> createBooking(BookingRequest request) {
-        BookingResponse created = hotelService.createBooking(request); // теперь синхронно!
+        BookingResponse created = hotelService.createBooking(request);
         EntityModel<BookingResponse> model = bookingAssembler.toModel(created);
         return ResponseEntity.created(model.getRequiredLink("self").toUri()).body(model);
+    }
+
+    @Override
+    public ResponseEntity<EntityModel<BookingResponse>> payBooking(PaymentRequest request) {
+        BookingResponse paid = hotelService.payBooking(request);
+        EntityModel<BookingResponse> model = bookingAssembler.toModel(paid);
+        return ResponseEntity.ok(model);
     }
 
     @Override

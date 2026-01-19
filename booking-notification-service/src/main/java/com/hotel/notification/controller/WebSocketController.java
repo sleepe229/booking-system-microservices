@@ -1,14 +1,12 @@
 package com.hotel.notification.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hotel.notification.websocket.NotificationWebSocketHandler;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/websocket")
+@RequestMapping("/api/notifications")
 public class WebSocketController {
 
     private final NotificationWebSocketHandler handler;
@@ -17,47 +15,31 @@ public class WebSocketController {
         this.handler = handler;
     }
 
+    /**
+     * Broadcast сообщения всем подключенным пользователям
+     */
     @PostMapping("/broadcast")
-    public ResponseEntity<Map<String, Object>> broadcast(@RequestBody Map<String, Object> payload) {
-        try {
-            String message = new ObjectMapper().writeValueAsString(payload);
-            int sent = handler.broadcast(message);
-            return ResponseEntity.ok(Map.of(
-                    "status", "ok",
-                    "sentTo", sent,
-                    "message", message
-            ));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
-    }
+    public Map<String, Object> broadcast(@RequestBody Map<String, String> request) {
+        String message = request.get("message");
+        handler.broadcast(message);
 
-    @PostMapping("/send/{userId}")
-    public ResponseEntity<Map<String, Object>> sendToUser(
-            @PathVariable String userId,
-            @RequestBody Map<String, Object> payload) {
-        try {
-            String message = new ObjectMapper().writeValueAsString(payload);
-            boolean sent = handler.sendToUser(userId, message);
-            return ResponseEntity.ok(Map.of(
-                    "status", sent ? "ok" : "user_not_connected",
-                    "userId", userId,
-                    "delivered", sent,
-                    "message", message
-            ));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        return Map.of(
+                "status", "success",
+                "message", "Broadcasted to all users",
+                "activeUsers", handler.getActiveUsers(),
+                "totalSessions", handler.getTotalSessions()
+        );
     }
 
     /**
-     * Статистика подключений
+     * Статистика WebSocket подключений
      */
     @GetMapping("/stats")
-    public ResponseEntity<Map<String, Object>> stats() {
-        return ResponseEntity.ok(Map.of(
+    public Map<String, Object> getStats() {
+        return Map.of(
                 "activeUsers", handler.getActiveUsers(),
-                "totalSessions", handler.getTotalSessions()
-        ));
+                "totalSessions", handler.getTotalSessions(),
+                "userIds", handler.getActiveUserIds()
+        );
     }
 }

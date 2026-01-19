@@ -5,7 +5,7 @@ RUN apk add --no-cache maven
 
 COPY . .
 
-RUN mvn clean install -DskipTests -Dmaven.complier.parameters=True
+RUN mvn clean install -DskipTests -Dmaven.compiler.parameters=True
 
 FROM bellsoft/liberica-openjre-alpine:21 AS layers
 WORKDIR /application

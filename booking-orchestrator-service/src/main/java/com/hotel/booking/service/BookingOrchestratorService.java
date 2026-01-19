@@ -25,122 +25,99 @@ public class BookingOrchestratorService {
     private static final Logger log = LoggerFactory.getLogger(BookingOrchestratorService.class);
     private static final String FANOUT_EXCHANGE = "booking-orchestration-fanout";
     private static final long GRPC_DEADLINE_SECONDS = 5;
-    private static final Random random = new Random();
-
-    @GrpcClient("discount-service")
-    private DiscountServiceGrpc.DiscountServiceBlockingStub discountServiceStub;
 
     private final RabbitTemplate rabbitTemplate;
+    private final IdempotencyService idempotencyService;
+    private final DiscountClientService discountClient;
 
-    public BookingOrchestratorService(RabbitTemplate rabbitTemplate) {
+    public BookingOrchestratorService(
+            RabbitTemplate rabbitTemplate,
+            IdempotencyService idempotencyService, DiscountClientService discountClientService) {
         this.rabbitTemplate = rabbitTemplate;
+        this.idempotencyService = idempotencyService;
+        this.discountClient = discountClientService;
     }
 
     @RabbitListener(queues = "orchestrator-booking-created-queue")
-    public void consumeBookingCreatedEvent(
-            @Payload BookingCreatedEvent event,
-            @Header("guests") int guests,
-            @Header("userId") String userId) {
+    public void consumeBookingCreatedEvent(@Payload BookingCreatedEvent event) {
+        // ✅ 1. ПЕРВЫМ ДЕЛОМ - проверка на дубликаты
+        if (!idempotencyService.tryAcquire(event.bookingId())) {
+            log.warn("⚠️ DUPLICATE EVENT IGNORED: bookingId={}", event.bookingId());
+            return; // пропускаем повторную обработку
+        }
 
-        log.info("Получено событие BookingCreatedEvent: bookingId={}, hotelId={}, guests={}",
-                event.bookingId(), event.hotelId(), guests);
+        log.info("Получено событие BookingCreatedEvent: bookingId={}, hotelId={}, nights={}, basePrice={}",
+                event.bookingId(), event.hotelId(), event.nights(), event.basePrice());
 
         try {
-            // ← Валидация событие
-            if (!validateBookingEvent(event, guests)) {
-                log.warn("Событие не прошло валидацию: {}", event.bookingId());
+            // ✅ 2. Валидация события (теперь проверяем поля из самого события)
+            if (!validateBookingEvent(event)) {
+                log.warn("❌ Событие не прошло валидацию: {}", event.bookingId());
                 BookingResult result = BookingResult.rejected(
                         event.bookingId(),
                         0.0,
                         "Невалидные данные события"
                 );
                 publishBookingProcessedEvent(event, result);
-                return;
+                return; // ✅ НЕ освобождаем idempotency - событие невалидно навсегда
             }
 
-            // ← Рассчитываем ночи
-            int nights = (int) ChronoUnit.DAYS.between(
-                    LocalDate.parse(event.checkIn()),
-                    LocalDate.parse(event.checkOut())
-            );
+            // ✅ 3. Используем РЕАЛЬНУЮ цену из события (не генерируем!)
+            double basePrice = event.basePrice();
+            int nights = event.nights();
 
-            // ← ГЕНЕРИРУЕМ basePrice на оркестраторе
-            double basePrice = generateBasePrice(nights, guests);
-            log.info("Сгенерирована базовая цена: {} (ночи={}, гости={})",
-                    basePrice, nights, guests);
+            log.info("📦 Получены данные из Hotel Service: basePrice={}, nights={}, pricePerNight={}",
+                    basePrice, nights, event.pricePerNight());
 
-            // ← Готовим gRPC запрос к discount-service
+            // ✅ 4. Готовим gRPC запрос к discount-service
             DiscountRequest discountRequest = DiscountRequest.newBuilder()
                     .setBookingId(event.bookingId())
                     .setHotelId(event.hotelId())
-                    .setNights(nights)
-                    .setBasePrice(basePrice)
-                    .setIsLoyalCustomer(false)  // ← можно добавить в headers
+                    .setNights(nights)                // ✅ из события
+                    .setBasePrice(basePrice)          // ✅ реальная цена из БД
+                    .setIsLoyalCustomer(false)        // TODO: передавать из event или user service
                     .build();
 
-            log.info("Запрос скидки для booking_id: {}", event.bookingId());
+            log.info("🔄 Запрос скидки для booking_id: {}", event.bookingId());
 
-            DiscountResponse discountResponse;
-            try {
-                discountResponse = discountServiceStub
-                        .withDeadlineAfter(GRPC_DEADLINE_SECONDS, TimeUnit.SECONDS)
-                        .calculateDiscount(discountRequest);
-            } catch (StatusRuntimeException e) {
-                if (e.getStatus().getCode() == io.grpc.Status.DEADLINE_EXCEEDED.getCode()) {
-                    log.error("TIMEOUT: Discount service не ответил за {} сек", GRPC_DEADLINE_SECONDS);
-                    BookingResult result = BookingResult.rejected(
-                            event.bookingId(),
-                            basePrice,
-                            "Timeout при расчёте скидки"
-                    );
-                    publishBookingProcessedEvent(event, result);
-                    return;
-                }
-                throw e;
+            DiscountResponse discountResponse = discountClient.calculateDiscount(discountRequest);
+
+            // ✅ Если вернулся fallback, это нормально
+            if (!discountResponse.getApplied()) {
+                log.info("ℹ️ Скидка не применена: {}", discountResponse.getDiscountReason());
             }
 
-            // ← Валидируем ответ скидок
+            // ✅ 6. Валидируем ответ от Discount Service
             if (!validateDiscountResponse(discountResponse)) {
-                log.error("Невалидный DiscountResponse для booking_id: {}", event.bookingId());
+                log.error("❌ Невалидный DiscountResponse для booking_id: {}", event.bookingId());
                 BookingResult result = BookingResult.rejected(
                         event.bookingId(),
                         basePrice,
                         "Невалидный ответ о скидке"
                 );
                 publishBookingProcessedEvent(event, result);
-                return;
+                return; // ✅ НЕ освобождаем idempotency
             }
 
-            log.info("Получена скидка: {}% ({}), финальная цена: {}",
+            log.info("✅ Получена скидка: {}% ({}), финальная цена: {}",
                     discountResponse.getDiscountPercentage(),
                     discountResponse.getDiscountReason(),
                     discountResponse.getFinalPrice());
 
-            // ← Получаем рекомендации (опционально)
+            // ✅ 7. Получаем рекомендации (опционально, без критичности)
             RecommendationRequest recRequest = RecommendationRequest.newBuilder()
                     .setUserId(event.userId())
                     .setHotelId(event.hotelId())
                     .build();
 
-            RecommendationResponse recommendations;
-            try {
-                recommendations = discountServiceStub
-                        .withDeadlineAfter(GRPC_DEADLINE_SECONDS, TimeUnit.SECONDS)
-                        .getRecommendations(recRequest);
-            } catch (StatusRuntimeException e) {
-                if (e.getStatus().getCode() == io.grpc.Status.DEADLINE_EXCEEDED.getCode()) {
-                    log.warn("TIMEOUT при получении рекомендаций для booking_id: {}", event.bookingId());
-                    recommendations = RecommendationResponse.getDefaultInstance();
-                } else {
-                    throw e;
-                }
-            }
+            RecommendationResponse recommendations = discountClient.getRecommendations(recRequest);
 
-            log.info("Получены рекомендации: {} отелей", recommendations.getRecommendedHotelIdsList().size());
+            log.info("💡 Получены рекомендации: {} отелей",
+                    recommendations.getRecommendedHotelIdsList().size());
 
-            // ← Проверяем логику подтверждения
+            // ✅ 8. Проверяем логику подтверждения
             boolean confirmed = discountResponse.getFinalPrice() > 0
-                    && discountResponse.getFinalPrice() <= basePrice * 2;
+                    && discountResponse.getFinalPrice() <= basePrice * 1.5; // ✅ защита от багов
 
             BookingResult result;
             if (confirmed) {
@@ -158,9 +135,11 @@ public class BookingOrchestratorService {
                         recommendations.getRecommendedHotelIdsList()
                 );
             } else {
-                log.warn("❌ Бронирование ОТКЛОНЕНО: bookingId={}, finalPrice={} недопустима",
+                log.warn("❌ Бронирование ОТКЛОНЕНО: bookingId={}, finalPrice={} недопустима " +
+                                "(basePrice={}, превышение допустимого)",
                         event.bookingId(),
-                        discountResponse.getFinalPrice());
+                        discountResponse.getFinalPrice(),
+                        basePrice);
 
                 result = BookingResult.rejected(
                         event.bookingId(),
@@ -169,68 +148,116 @@ public class BookingOrchestratorService {
                 );
             }
 
+            // ✅ 9. Публикуем результат
             publishBookingProcessedEvent(event, result);
 
+            // ✅ idempotency key остаётся в Redis (TTL 10 мин) - защита от повторной обработки
+
         } catch (StatusRuntimeException e) {
-            log.error("❌ gRPC ошибка: status={}, message={}", e.getStatus().getCode(), e.getMessage(), e);
-            BookingResult result = BookingResult.rejected(
-                    event.bookingId(),
-                    0.0,
-                    "Сервис скидок недоступен: " + e.getStatus().getCode()
-            );
-            publishBookingProcessedEvent(event, result);
+            log.error("❌ gRPC ошибка: status={}, message={}",
+                    e.getStatus().getCode(), e.getMessage(), e);
+
+            // ✅ При gRPC ошибках ОСВОБОЖДАЕМ idempotency для retry
+            idempotencyService.release(event.bookingId());
+
+            // Пробрасываем исключение для RabbitMQ retry
+            throw new RuntimeException("gRPC service unavailable, retry needed", e);
 
         } catch (Exception e) {
             log.error("❌ Неожиданная ошибка: {}", e.getMessage(), e);
-            BookingResult result = BookingResult.rejected(
-                    event.bookingId(),
-                    0.0,
-                    "Внутренняя ошибка: " + e.getClass().getSimpleName()
-            );
-            publishBookingProcessedEvent(event, result);
+
+            // ✅ При неожиданных ошибках ОСВОБОЖДАЕМ idempotency для retry
+            idempotencyService.release(event.bookingId());
+
+            // Пробрасываем для retry
+            throw new RuntimeException("Unexpected error, retry needed", e);
         }
     }
 
-    private double generateBasePrice(int nights, int guests) {
-        int pricePerNightPerGuest = 50 + random.nextInt(100);  // [50, 150)
-        double basePrice = nights * guests * pricePerNightPerGuest;
-        log.debug("Генерация цены: {} ночей × {} гостей × {} = {}",
-                nights, guests, pricePerNightPerGuest, basePrice);
-        return basePrice;
-    }
+    /**
+     * ✅ ОБНОВЛЁННАЯ валидация - проверяем поля из события
+     */
+    private boolean validateBookingEvent(BookingCreatedEvent event) {
+        if (event == null) {
+            log.warn("❌ Null event");
+            return false;
+        }
 
-    private boolean validateDiscountResponse(DiscountResponse response) {
-        if (response.getDiscountPercentage() < 0 || response.getDiscountPercentage() > 100) {
-            log.error("Невалидный процент скидки: {}%", response.getDiscountPercentage());
+        if (event.bookingId() == null || event.bookingId().isEmpty()) {
+            log.warn("❌ Пустой bookingId");
             return false;
         }
-        if (response.getFinalPrice() < 0) {
-            log.error("Невалидная финальная цена: {}", response.getFinalPrice());
+
+        if (event.hotelId() == null || event.hotelId().isEmpty()) {
+            log.warn("❌ Пустой hotelId");
             return false;
         }
+
+        if (event.userId() == null || event.userId().isEmpty()) {
+            log.warn("❌ Пустой userId");
+            return false;
+        }
+
+        // ✅ Валидация новых полей
+        if (event.nights() <= 0) {
+            log.warn("❌ Невалидное количество ночей: {}", event.nights());
+            return false;
+        }
+
+        if (event.basePrice() <= 0) {
+            log.warn("❌ Невалидная базовая цена: {}", event.basePrice());
+            return false;
+        }
+
+        if (event.pricePerNight() <= 0) {
+            log.warn("❌ Невалидная цена за ночь: {}", event.pricePerNight());
+            return false;
+        }
+
+        // Проверка дат
+        try {
+            LocalDate checkIn = LocalDate.parse(event.checkIn());
+            LocalDate checkOut = LocalDate.parse(event.checkOut());
+
+            if (checkOut.isBefore(checkIn) || checkOut.isEqual(checkIn)) {
+                log.warn("❌ check-out должен быть после check-in: {} -> {}",
+                        event.checkIn(), event.checkOut());
+                return false;
+            }
+
+            // ✅ Проверяем соответствие nights расчёту из дат
+            long calculatedNights = ChronoUnit.DAYS.between(checkIn, checkOut);
+            if (calculatedNights != event.nights()) {
+                log.warn("❌ Несоответствие nights: в событии {}, рассчитано {}",
+                        event.nights(), calculatedNights);
+                return false;
+            }
+
+        } catch (Exception e) {
+            log.warn("❌ Невалидные даты: checkIn={}, checkOut={}",
+                    event.checkIn(), event.checkOut());
+            return false;
+        }
+
         return true;
     }
 
-    private boolean validateBookingEvent(BookingCreatedEvent event, int guests) {
-        if (event == null || event.bookingId() == null || event.bookingId().isEmpty()) {
-            log.warn("Пустой bookingId");
+    private boolean validateDiscountResponse(DiscountResponse response) {
+        if (response == null) {
+            log.error("❌ Null DiscountResponse");
             return false;
         }
-        if (event.hotelId() == null || event.hotelId().isEmpty()) {
-            log.warn("Пустой hotelId");
+
+        if (response.getDiscountPercentage() < 0 || response.getDiscountPercentage() > 100) {
+            log.error("❌ Невалидный процент скидки: {}%", response.getDiscountPercentage());
             return false;
         }
-        if (guests <= 0) {
-            log.warn("Невалидное количество гостей: {}", guests);
+
+        if (response.getFinalPrice() < 0) {
+            log.error("❌ Невалидная финальная цена: {}", response.getFinalPrice());
             return false;
         }
-        try {
-            LocalDate.parse(event.checkIn());
-            LocalDate.parse(event.checkOut());
-        } catch (Exception e) {
-            log.warn("Невалидные даты: checkIn={}, checkOut={}", event.checkIn(), event.checkOut());
-            return false;
-        }
+
         return true;
     }
 
@@ -252,7 +279,7 @@ public class BookingOrchestratorService {
             } else {
                 processedEvent = BookingProcessedEvent.rejected(
                         result.bookingId(),
-                        event.userId(),  // ← userId нет, передаём null
+                        event.userId(),
                         event.hotelId(),
                         result.originalPrice(),
                         result.rejectionReason()
@@ -268,10 +295,15 @@ public class BookingOrchestratorService {
                     processedEvent.discountPercentage());
 
         } catch (Exception e) {
-            log.error("❌ Ошибка публикации BookingProcessedEvent: {}", e.getMessage(), e);
-            throw new RuntimeException("Failed to publish BookingProcessedEvent", e);
+            log.error("❌ Критическая ошибка публикации BookingProcessedEvent для booking_id: {}",
+                    result.bookingId(), e);
+            // ✅ НЕ пробрасываем исключение - иначе idempotency не сработает
+            // Можно добавить retry логику или DLQ
         }
     }
+
+    // ✅ УДАЛЯЕМ метод generateBasePrice - больше не нужен!
+    // private double generateBasePrice(int nights, int guests) { ... }
 
     public record BookingResult(
             String bookingId,

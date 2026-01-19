@@ -18,6 +18,79 @@ services:
     networks:
       - backend
 
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - backend
+
+  jenkins:
+    build:
+      context: .
+      dockerfile: Dockerfile.jenkins
+    container_name: jenkins
+    ports:
+      - "8081:8080"
+      - "50000:50000"
+    environment:
+      - JENKINS_OPTS=-Djenkins.install.runSetupWizard=false
+    volumes:
+      - jenkins_home:/var/jenkins_home
+    networks:
+      - backend
+    depends_on:
+      - rabbitmq
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - backend
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - backend
+    depends_on:
+      - prometheus
+
+  zipkin:
+    image: openzipkin/zipkin:latest
+    container_name: zipkin
+    ports:
+      - "9411:9411"
+    networks:
+      - backend
+    environment:
+      - STORAGE_TYPE=mem
+
   postgres-gateway:
     image: postgres:16-alpine
     container_name: postgres-gateway
@@ -72,6 +145,8 @@ services:
         condition: service_healthy
       postgres-gateway:
         condition: service_healthy
+      zipkin:
+        condition: service_started
     ports:
       - "8089:8080"
     networks:
@@ -93,6 +168,8 @@ services:
         condition: service_healthy
       postgres-audit:
         condition: service_healthy
+      zipkin:
+        condition: service_started
     ports:
       - "8082:8082"
     networks:
@@ -107,6 +184,9 @@ services:
     ports:
       - "8083:8083"
       - "9091:9091"
+    depends_on:
+      zipkin:
+        condition: service_started
     networks:
       - backend
     healthcheck:
@@ -125,11 +205,18 @@ services:
       - GRPC_CLIENT_DISCOUNT_SERVICE_ADDRESS=static://discount-service:9091
       - GRPC_CLIENT_DISCOUNT_SERVICE_NEGOTIATION_TYPE=plaintext
       - SPRING_RABBITMQ_HOST=rabbitmq
+      - SPRING_REDIS_HOST=redis
+      - SPRING_REDIS_PORT=6379
+      - SPRING_REDIS_DATABASE=0
     depends_on:
       discount-service:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+      zipkin:
+        condition: service_started
     ports:
       - "8084:8084"
     networks:
@@ -143,65 +230,26 @@ services:
     container_name: notification-service
     environment:
       - SPRING_RABBITMQ_HOST=rabbitmq
+      - SPRING_REDIS_HOST=redis
+      - SPRING_REDIS_PORT=6379
+      - SPRING_REDIS_DATABASE=1
     depends_on:
       rabbitmq:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+      zipkin:
+        condition: service_started
     ports:
       - "8085:8085"
     networks:
       - backend
-  jenkins:
-    build:
-      context: .
-      dockerfile: Dockerfile.jenkins
-    container_name: jenkins
-    ports:
-      - "8081:8080"
-      - "50000:50000"
-    environment:
-      - JENKINS_OPTS=-Djenkins.install.runSetupWizard=false
-    volumes:
-      - jenkins_home:/var/jenkins_home
-    networks:
-      - backend
-    depends_on:
-      - rabbitmq
-
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: prometheus
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
-      - prometheus_data:/prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-    networks:
-      - backend
-
-  grafana:
-    image: grafana/grafana:latest
-    container_name: grafana
-    ports:
-      - "3000:3000"
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_INSTALL_PLUGINS=grafana-piechart-panel
-    volumes:
-      - grafana_data:/var/lib/grafana
-    networks:
-      - backend
-    depends_on:
-      - prometheus
-
 
 volumes:
   rabbitmq_data:
   postgres_gateway_data:
   postgres_audit_data:
+  redis_data:
   jenkins_home:
   prometheus_data:
   grafana_data:

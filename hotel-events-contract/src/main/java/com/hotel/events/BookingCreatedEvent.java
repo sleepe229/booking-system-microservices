@@ -9,5 +9,8 @@ public record BookingCreatedEvent(
         String customerName,
         String customerEmail,
         String checkIn,
-        String checkOut
+        String checkOut,
+        int nights,
+        double pricePerNight,
+        double basePrice
 ) {}

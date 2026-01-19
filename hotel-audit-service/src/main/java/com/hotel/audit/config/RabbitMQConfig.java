@@ -12,8 +12,10 @@ public class RabbitMQConfig {
     public static final String EXCHANGE_NAME = "hotel-bookings-exchange";
     public static final String QUEUE_BOOKING_CREATED = "audit-booking-created-queue";
     public static final String QUEUE_BOOKING_CANCELLED = "audit-booking-cancelled-queue";
+    public static final String QUEUE_BOOKING_PAID = "audit-booking-paid-queue";
     public static final String ROUTING_KEY_BOOKING_CREATED = "booking.created";
     public static final String ROUTING_KEY_BOOKING_CANCELLED = "booking.cancelled";
+    public static final String ROUTING_KEY_BOOKING_PAID = "booking.paid";
 
     public static final String ORCHESTRATION_EXCHANGE = "booking-orchestration-fanout";
     public static final String ORCHESTRATION_QUEUE_AUDIT = "q.audit.orchestration";
@@ -34,6 +36,11 @@ public class RabbitMQConfig {
     }
 
     @Bean
+    public Queue queueBookingPaid() {
+        return QueueBuilder.durable(QUEUE_BOOKING_PAID).build();
+    }
+
+    @Bean
     public Binding bindingBookingCreated(TopicExchange bookingsExchange) {
         return BindingBuilder.bind(queueBookingCreated())
                 .to(bookingsExchange)
@@ -45,6 +52,13 @@ public class RabbitMQConfig {
         return BindingBuilder.bind(queueBookingCancelled())
                 .to(bookingsExchange)
                 .with(ROUTING_KEY_BOOKING_CANCELLED);
+    }
+
+    @Bean
+    public Binding bindingBookingPaid(TopicExchange bookingsExchange) {
+        return BindingBuilder.bind(queueBookingPaid())
+                .to(bookingsExchange)
+                .with(ROUTING_KEY_BOOKING_PAID);
     }
 
     @Bean

@@ -5,10 +5,7 @@ import com.hotel.entity.Booking;
 import com.hotel.repo.BookingRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.amqp.rabbit.annotation.Exchange;
-import org.springframework.amqp.rabbit.annotation.Queue;
-import org.springframework.amqp.rabbit.annotation.QueueBinding;
-import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.amqp.rabbit.annotation.*;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,7 +23,8 @@ public class OrchestrationEventListener {
 
     @RabbitListener(
             bindings = @QueueBinding(
-                    value = @Queue(name = "q.hotel.orchestration", durable = "true"),
+                    value = @Queue(name = "q.hotel.orchestration", durable = "true",
+                            arguments = @Argument(name = "x-message-ttl", value = "300000", type = "java.lang.Integer")),
                     exchange = @Exchange(name = "booking-orchestration-fanout", type = "fanout")
             )
     )
@@ -34,7 +32,10 @@ public class OrchestrationEventListener {
     public void handleBookingProcessed(BookingProcessedEvent event) {
         log.info("HOTEL SERVICE: Обработка результата оркестрации для booking_id: {}",
                 event.bookingId());
-
+        if (event.bookingId() == null || event.bookingId().isEmpty()) {
+            log.error("Пустой bookingId в событии, пропускаем");
+            return;
+        }
         try {
             Optional<Booking> bookingOpt = bookingRepository.findById(event.bookingId());
 
