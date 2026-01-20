@@ -28,7 +28,7 @@ public class RabbitMQConfig {
     @Bean
     public Queue queueBookingCreated() {
         return QueueBuilder.durable(QUEUE_BOOKING_CREATED)
-                .ttl(60000)  // 60 секунд
+                .ttl(60000)
                 .deadLetterExchange(DLQ_EXCHANGE)
                 .deadLetterRoutingKey("dlq.booking.created")
                 .build();

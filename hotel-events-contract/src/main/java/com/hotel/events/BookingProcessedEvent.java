@@ -10,6 +10,7 @@ public record BookingProcessedEvent(
         String bookingId,
         String userId,
         String hotelId,
+        String customerEmail,
         String status,  // CONFIRMED или REJECTED
         double originalPrice,
         double finalPrice,
@@ -24,6 +25,7 @@ public record BookingProcessedEvent(
             String bookingId,
             String userId,
             String hotelId,
+            String customerEmail,
             double originalPrice,
             double finalPrice,
             double discountPercentage,
@@ -33,6 +35,7 @@ public record BookingProcessedEvent(
                 bookingId,
                 userId,
                 hotelId,
+                customerEmail,
                 "CONFIRMED",
                 originalPrice,
                 finalPrice,
@@ -47,6 +50,7 @@ public record BookingProcessedEvent(
     public static BookingProcessedEvent rejected(
             String bookingId,
             String userId,
+            String customerEmail,
             String hotelId,
             double originalPrice,
             String rejectionReason) {
@@ -54,6 +58,7 @@ public record BookingProcessedEvent(
                 bookingId,
                 userId,
                 hotelId,
+                customerEmail,
                 "REJECTED",
                 originalPrice,
                 0.0,

@@ -33,8 +33,6 @@ public class HotelDataFetcher {
 
         List<HotelSearchResponse> hotels = hotelService.searchHotels(request);
 
-        // Если указан фильтр по типу комнаты, можно добавить логику фильтрации
-        // Пока просто возвращаем все отели
         return hotels;
     }
 }

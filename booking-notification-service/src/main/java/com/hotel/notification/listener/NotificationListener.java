@@ -6,9 +6,6 @@ import com.hotel.events.BookingProcessedEvent;
 import com.hotel.notification.websocket.NotificationWebSocketHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.amqp.rabbit.annotation.Exchange;
-import org.springframework.amqp.rabbit.annotation.Queue;
-import org.springframework.amqp.rabbit.annotation.QueueBinding;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -73,6 +70,7 @@ public class NotificationListener {
         Map<String, Object> notification = new HashMap<>();
         notification.put("type", "BOOKING_UPDATE");
         notification.put("bookingId", event.bookingId());
+        notification.put("customerEmail", event.customerEmail());
         notification.put("status", event.status());
         notification.put("userId", event.userId());
         notification.put("hotelId", event.hotelId());

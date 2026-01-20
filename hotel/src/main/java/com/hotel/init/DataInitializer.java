@@ -23,9 +23,8 @@ public class DataInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        log.info("🏨 Initializing hotel database...");
+        log.info(" Initializing hotel database...");
 
-        // Проверяем есть ли уже отели
         if (hotelRepository.count() > 0) {
             log.info("✅ Hotels already exist in database, skipping initialization");
             return;
@@ -91,10 +90,9 @@ public class DataInitializer implements CommandLineRunner {
 
         hotelRepository.saveAll(hotels);
 
-        log.info("✅ Successfully initialized {} hotels in database", hotels.size());
-        log.info("📊 Hotels by city:");
+        log.info(" Successfully initialized {} hotels in database", hotels.size());
+        log.info(" Hotels by city:");
 
-        // Статистика по городам
         hotelRepository.findAll().stream()
                 .collect(java.util.stream.Collectors.groupingBy(
                         Hotel::getCity,

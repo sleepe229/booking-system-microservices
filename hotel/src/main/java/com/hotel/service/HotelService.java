@@ -56,7 +56,6 @@ public class HotelService {
 
     public List<String> searchCities(String query) {
         if (query == null || query.trim().isEmpty()) {
-            // Возвращаем все уникальные города
             log.debug("Getting all cities");
             return hotelRepository.findAllDistinctCities();
         }

@@ -13,9 +13,9 @@ public class BookingResponse extends RepresentationModel<BookingResponse> {
     private final String customerName;
     private final String customerEmail;
 
-    private final String checkIn;      // ⬅ добавить
-    private final String checkOut;     // ⬅ добавить
-    private final Integer guests;      // ⬅ добавить
+    private final String checkIn;
+    private final String checkOut;
+    private final Integer guests;
 
     private final Double finalPrice;
     private final Double discount;

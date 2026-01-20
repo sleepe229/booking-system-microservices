@@ -54,12 +54,12 @@ public class BookingEventListener {
                 ? "BOOKING_CONFIRMED"
                 : "BOOKING_REJECTED";
 
-        save(type, event, event.bookingId(), event.userId());
+        save(type, event, event.bookingId(), event.customerEmail());
     }
 
     @RabbitListener(queues = RabbitMQConfig.QUEUE_BOOKING_PAID)
     public void onBookingPaid(BookingPaidEvent event) {
-        log.info("💳 Audit: booking paid -> bookingId={}, amount={}, method={}",
+        log.info(" Audit: booking paid -> bookingId={}, amount={}, method={}",
                 event.bookingId(), event.finalPrice(), event.paymentMethod());
         save("BOOKING_PAID", event, event.bookingId(), event.customerEmail());
     }

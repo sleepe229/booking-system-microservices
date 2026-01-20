@@ -15,9 +15,6 @@ public class WebSocketController {
         this.handler = handler;
     }
 
-    /**
-     * Broadcast сообщения всем подключенным пользователям
-     */
     @PostMapping("/broadcast")
     public Map<String, Object> broadcast(@RequestBody Map<String, String> request) {
         String message = request.get("message");
@@ -31,9 +28,6 @@ public class WebSocketController {
         );
     }
 
-    /**
-     * Статистика WebSocket подключений
-     */
     @GetMapping("/stats")
     public Map<String, Object> getStats() {
         return Map.of(

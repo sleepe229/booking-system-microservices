@@ -20,7 +20,7 @@ public class NotificationWebSocketHandler extends TextWebSocketHandler {
 
     private static final Logger log = LoggerFactory.getLogger(NotificationWebSocketHandler.class);
     private static final String REDIS_WS_PREFIX = "ws:user:";
-    private static final String REDIS_BROADCAST_CHANNEL = "ws:broadcast"; // ✅ добавили
+    private static final String REDIS_BROADCAST_CHANNEL = "ws:broadcast";
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final StringRedisTemplate redisTemplate;
@@ -35,7 +35,6 @@ public class NotificationWebSocketHandler extends TextWebSocketHandler {
         this.redisTemplate = redisTemplate;
         this.listenerContainer = listenerContainer;
 
-        // ✅ Подписываемся на broadcast канал при инициализации
         subscribeToBroadcastChannel();
     }
 
@@ -43,7 +42,7 @@ public class NotificationWebSocketHandler extends TextWebSocketHandler {
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
         String userId = extractUserId(session);
         if (userId == null || userId.isEmpty()) {
-            log.warn("⚠️ Нет userId в WS подключении, закрываем: {}", session.getId());
+            log.warn(" Нет userId в WS подключении, закрываем: {}", session.getId());
             session.close(CloseStatus.NOT_ACCEPTABLE);
             return;
         }
@@ -54,7 +53,7 @@ public class NotificationWebSocketHandler extends TextWebSocketHandler {
 
         subscribeToUserChannel(userId);
 
-        log.info("✅ WS connected: userId={}, sessionId={}, localTotal={}",
+        log.info(" WS connected: userId={}, sessionId={}, localTotal={}",
                 userId, session.getId(), localSessions.get(userId).size());
 
         sendConnectionMessage(session, userId);
@@ -73,7 +72,7 @@ public class NotificationWebSocketHandler extends TextWebSocketHandler {
                 }
             }
         }
-        log.info("❌ WS disconnected: userId={}, reason={}", userId, status.getReason());
+        log.info(" WS disconnected: userId={}, reason={}", userId, status.getReason());
     }
 
     @Override
@@ -86,16 +85,13 @@ public class NotificationWebSocketHandler extends TextWebSocketHandler {
 
     @Override
     public void handleTransportError(WebSocketSession session, Throwable exception) {
-        log.error("⚠️ WS transport error: sessionId={}", session.getId(), exception);
+        log.error(" WS transport error: sessionId={}", session.getId(), exception);
         String userId = (String) session.getAttributes().get("userId");
         if (userId != null) {
             cleanupSession(userId, session);
         }
     }
 
-    /**
-     * Отправка сообщения конкретному пользователю через Redis Pub/Sub
-     */
     public boolean sendToUser(String userId, String message) {
         String channel = REDIS_WS_PREFIX + userId;
 
@@ -109,33 +105,15 @@ public class NotificationWebSocketHandler extends TextWebSocketHandler {
         }
     }
 
-    /**
-     * ✅ Broadcast сообщения всем подключенным пользователям через Redis
-     */
     public void broadcast(String message) {
         try {
             redisTemplate.convertAndSend(REDIS_BROADCAST_CHANNEL, message);
-            log.info("📢 Broadcasted to Redis: {} users", localSessions.size());
+            log.info(" Broadcasted to Redis: {} users", localSessions.size());
         } catch (Exception e) {
-            log.error("❌ Broadcast failed", e);
+            log.error(" Broadcast failed", e);
         }
     }
 
-    /**
-     * ✅ Broadcast объекта (автоматическая сериализация в JSON)
-     */
-    public void broadcastObject(Object message) {
-        try {
-            String json = objectMapper.writeValueAsString(message);
-            broadcast(json);
-        } catch (Exception e) {
-            log.error("❌ Failed to serialize broadcast message", e);
-        }
-    }
-
-    /**
-     * ✅ Подписка на broadcast канал (для всех пользователей)
-     */
     private void subscribeToBroadcastChannel() {
         ChannelTopic topic = new ChannelTopic(REDIS_BROADCAST_CHANNEL);
 
@@ -147,7 +125,6 @@ public class NotificationWebSocketHandler extends TextWebSocketHandler {
             int sent = 0;
             int total = 0;
 
-            // Отправляем всем локальным сессиям
             for (Set<WebSocketSession> sessions : localSessions.values()) {
                 for (WebSocketSession session : sessions) {
                     total++;
@@ -157,15 +134,12 @@ public class NotificationWebSocketHandler extends TextWebSocketHandler {
                 }
             }
 
-            log.info("📢 Broadcast delivered: {}/{} sessions", sent, total);
+            log.info(" Broadcast delivered: {}/{} sessions", sent, total);
         }, topic);
 
-        log.info("✅ Subscribed to broadcast channel: {}", REDIS_BROADCAST_CHANNEL);
+        log.info(" Subscribed to broadcast channel: {}", REDIS_BROADCAST_CHANNEL);
     }
 
-    /**
-     * Подписка на персональный канал пользователя
-     */
     private void subscribeToUserChannel(String userId) {
         String channel = REDIS_WS_PREFIX + userId;
 
@@ -174,7 +148,7 @@ public class NotificationWebSocketHandler extends TextWebSocketHandler {
 
             listenerContainer.addMessageListener((message, pattern) -> {
                 String msg = new String(message.getBody());
-                log.debug("📨 Received from Redis: channel={}, message={}", channel, msg);
+                log.debug(" Received from Redis: channel={}, message={}", channel, msg);
 
                 Set<WebSocketSession> sessions = localSessions.get(userId);
                 if (sessions != null && !sessions.isEmpty()) {
@@ -185,28 +159,22 @@ public class NotificationWebSocketHandler extends TextWebSocketHandler {
                             sent++;
                         }
                     }
-                    log.info("📤 Delivered locally: userId={}, sessions={}/{}",
+                    log.info(" Delivered locally: userId={}, sessions={}/{}",
                             userId, sent, sessions.size());
                 }
             }, topic);
 
             activeSubscriptions.add(channel);
-            log.info("✅ Subscribed to Redis channel: {}", channel);
+            log.info(" Subscribed to Redis channel: {}", channel);
         }
     }
 
-    /**
-     * Отписка от персонального канала
-     */
     private void unsubscribeFromUserChannel(String userId) {
         String channel = REDIS_WS_PREFIX + userId;
         activeSubscriptions.remove(channel);
-        log.info("❌ Unsubscribed from channel: {}", channel);
+        log.info(" Unsubscribed from channel: {}", channel);
     }
 
-    /**
-     * Отправка сообщения в WebSocket сессию
-     */
     private boolean sendMessage(WebSocketSession session, TextMessage message) {
         if (!session.isOpen()) return false;
         try {
@@ -215,14 +183,11 @@ public class NotificationWebSocketHandler extends TextWebSocketHandler {
             }
             return true;
         } catch (Exception e) {
-            log.warn("⚠️ Send failed: sessionId={}", session.getId());
+            log.warn(" Send failed: sessionId={}", session.getId());
             return false;
         }
     }
 
-    /**
-     * Отправка приветственного сообщения
-     */
     private void sendConnectionMessage(WebSocketSession session, String userId) throws Exception {
         Map<String, Object> msg = new HashMap<>();
         msg.put("type", "CONNECTED");
@@ -234,9 +199,6 @@ public class NotificationWebSocketHandler extends TextWebSocketHandler {
         sendMessage(session, new TextMessage(json));
     }
 
-    /**
-     * Очистка сессии при ошибке
-     */
     private void cleanupSession(String userId, WebSocketSession session) {
         Set<WebSocketSession> sessions = localSessions.get(userId);
         if (sessions != null) {
@@ -248,9 +210,6 @@ public class NotificationWebSocketHandler extends TextWebSocketHandler {
         }
     }
 
-    /**
-     * Извлечение userId из query параметров
-     */
     private String extractUserId(WebSocketSession session) {
         String query = session.getUri().getQuery();
         if (query != null && !query.isEmpty()) {
@@ -263,7 +222,7 @@ public class NotificationWebSocketHandler extends TextWebSocketHandler {
                         );
                         if (!userId.isEmpty()) return userId;
                     } catch (Exception e) {
-                        log.warn("⚠️ Failed to decode userId", e);
+                        log.warn(" Failed to decode userId", e);
                     }
                 }
             }
@@ -271,25 +230,16 @@ public class NotificationWebSocketHandler extends TextWebSocketHandler {
         return null;
     }
 
-    /**
-     * Получить количество активных пользователей
-     */
     public int getActiveUsers() {
         return localSessions.size();
     }
 
-    /**
-     * Получить общее количество сессий
-     */
     public int getTotalSessions() {
         return localSessions.values().stream()
                 .mapToInt(Set::size)
                 .sum();
     }
 
-    /**
-     * ✅ Получить список активных пользователей (для stats API)
-     */
     public Set<String> getActiveUserIds() {
         return localSessions.keySet();
     }

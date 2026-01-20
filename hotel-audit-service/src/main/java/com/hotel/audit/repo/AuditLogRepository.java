@@ -20,26 +20,4 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
 
     List<AuditLog> findByBookingId(String bookingId);
 
-    Page<AuditLog> findByEventType(String eventType, Pageable pageable);
-
-    Page<AuditLog> findByBookingId(String bookingId, Pageable pageable);
-
-    Page<AuditLog> findByTimestampBetween(
-            LocalDateTime start,
-            LocalDateTime end,
-            Pageable pageable
-    );
-
-    @Query("SELECT a FROM AuditLog a WHERE a.customerEmail = :email ORDER BY a.timestamp DESC")
-    List<AuditLog> findByCustomerEmail(@Param("email") String email);
-
-    @Query("SELECT a.eventType, COUNT(a) FROM AuditLog a GROUP BY a.eventType")
-    List<Object[]> countByEventType();
-
-    @Query("SELECT a FROM AuditLog a WHERE a.timestamp > :since ORDER BY a.timestamp DESC")
-    List<AuditLog> findRecentEvents(@Param("since") LocalDateTime since);
-
-    @Query(value = "SELECT * FROM audit_log WHERE event_data::text LIKE %:searchTerm% ORDER BY timestamp DESC",
-            nativeQuery = true)
-    List<AuditLog> searchInEventData(@Param("searchTerm") String searchTerm);
 }
