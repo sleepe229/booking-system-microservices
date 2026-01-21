@@ -41,8 +41,7 @@ public class BookingOrchestratorService {
             return;
         }
 
-        log.info("Получено событие BookingCreatedEvent: bookingId={}, hotelId={}, nights={}, basePrice={}",
-                event.bookingId(), event.hotelId(), event.nights(), event.basePrice());
+        log.info(" Получено событие BookingCreatedEvent: bookingId={}", event.bookingId());
 
         try {
             if (!validateBookingEvent(event)) {
@@ -59,8 +58,7 @@ public class BookingOrchestratorService {
             double basePrice = event.basePrice();
             int nights = event.nights();
 
-            log.info(" Получены данные из Hotel Service: basePrice={}, nights={}, pricePerNight={}",
-                    basePrice, nights, event.pricePerNight());
+            log.info(" Получены данные: basePrice={}, nights={}", basePrice, nights);
 
             DiscountRequest discountRequest = DiscountRequest.newBuilder()
                     .setBookingId(event.bookingId())
@@ -72,10 +70,22 @@ public class BookingOrchestratorService {
 
             log.info(" Запрос скидки для booking_id: {}", event.bookingId());
 
-            DiscountResponse discountResponse = discountClient.calculateDiscount(discountRequest);
+            DiscountResponse discountResponse;
 
-            if (!discountResponse.getApplied()) {
-                log.info(" Скидка не применена: {}", discountResponse.getDiscountReason());
+            try {
+                discountResponse = discountClient.calculateDiscount(discountRequest);
+
+            } catch (StatusRuntimeException e) {
+                log.warn(" Discount Service недоступен ({}), используем basePrice без скидки",
+                        e.getStatus().getCode());
+
+                discountResponse = DiscountResponse.newBuilder()
+                        .setBookingId(event.bookingId())
+                        .setDiscountPercentage(0.0)
+                        .setFinalPrice(basePrice)
+                        .setDiscountReason("Discount service temporarily unavailable")
+                        .setApplied(false)
+                        .build();
             }
 
             if (!validateDiscountResponse(discountResponse)) {
@@ -94,12 +104,23 @@ public class BookingOrchestratorService {
                     discountResponse.getDiscountReason(),
                     discountResponse.getFinalPrice());
 
-            RecommendationRequest recRequest = RecommendationRequest.newBuilder()
-                    .setUserId(event.userId())
-                    .setHotelId(event.hotelId())
-                    .build();
+            RecommendationResponse recommendations;
 
-            RecommendationResponse recommendations = discountClient.getRecommendations(recRequest);
+            try {
+                RecommendationRequest recRequest = RecommendationRequest.newBuilder()
+                        .setUserId(event.userId())
+                        .setHotelId(event.hotelId())
+                        .build();
+
+                recommendations = discountClient.getRecommendations(recRequest);
+
+            } catch (StatusRuntimeException e) {
+                log.warn(" Recommendation Service недоступен, возвращаем пустой список");
+
+                recommendations = RecommendationResponse.newBuilder()
+                        .setMessage("Recommendations temporarily unavailable")
+                        .build();
+            }
 
             log.info("💡 Получены рекомендации: {} отелей",
                     recommendations.getRecommendedHotelIdsList().size());
@@ -123,11 +144,9 @@ public class BookingOrchestratorService {
                         recommendations.getRecommendedHotelIdsList()
                 );
             } else {
-                log.warn(" Бронирование ОТКЛОНЕНО: bookingId={}, finalPrice={} недопустима " +
-                                "(basePrice={}, превышение допустимого)",
+                log.warn(" Бронирование ОТКЛОНЕНО: bookingId={}, finalPrice={} недопустима",
                         event.bookingId(),
-                        discountResponse.getFinalPrice(),
-                        basePrice);
+                        discountResponse.getFinalPrice());
 
                 result = BookingResult.rejected(
                         event.bookingId(),
@@ -137,15 +156,6 @@ public class BookingOrchestratorService {
             }
 
             publishBookingProcessedEvent(event, result);
-
-
-        } catch (StatusRuntimeException e) {
-            log.error(" gRPC ошибка: status={}, message={}",
-                    e.getStatus().getCode(), e.getMessage(), e);
-
-            idempotencyService.release(event.bookingId());
-
-            throw new RuntimeException("gRPC service unavailable, retry needed", e);
 
         } catch (Exception e) {
             log.error("❌ Неожиданная ошибка: {}", e.getMessage(), e);

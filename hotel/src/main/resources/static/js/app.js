@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
     WS.initialize();
 
     // 2. Инициализация autocomplete
-    CityAutocomplete.init();  // ✅ ДОБАВИЛИ
+    CityAutocomplete.init();
 
     // 3. Установка дефолтных дат
     UI.setupDateDefaults();
@@ -60,7 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // 5. Загружаем отели с дефолтными параметрами
-    const defaultCity = 'Moscow';  // ✅ Дефолтный город
+    const defaultCity = 'Moscow';
     const defaultCheckIn = document.getElementById('searchCheckIn').value;
     const defaultCheckOut = document.getElementById('searchCheckOut').value;
     const defaultGuests = parseInt(document.getElementById('searchGuests').value);
@@ -70,3 +70,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     console.log('✅ Application initialized');
 });
+
+// ✅ Предупреждение при закрытии окна во время обработки бронирования
+window.addEventListener('beforeunload', (event) => {
+    if (STATE.currentBooking && !STATE.currentBooking.finalPrice) {
+        event.preventDefault();
+        event.returnValue = '⚠️ Your booking is still being processed! You will lose the result if you close this page.';
+        return event.returnValue;
+    }
+});
+
+console.log('✅ App module loaded');

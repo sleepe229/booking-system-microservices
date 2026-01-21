@@ -14,18 +14,35 @@ const CONFIG = {
     AUDIT_URL: `${window.location.protocol}//${window.location.hostname}:8082/api/audit`
 };
 
-// Глобальное состояние
+// ✅ Глобальное состояние (ЕДИНСТВЕННОЕ объявление STATE во всем приложении)
 const STATE = {
+    // User & WebSocket
     userId: null,
     wsConnected: false,
+
+    // Current booking flow
     currentBooking: null,
     selectedHotel: null,
-    currentMode: 'booking',
+
+    // Search & Hotels
     searchParams: {
         city: 'Moscow',
         checkIn: null,
         checkOut: null,
         guests: 2
     },
-    hotels: []
+    hotels: [],
+
+    // UI State
+    currentMode: 'booking',
+
+    // ✅ WebSocket buffering (защита от race condition)
+    pendingWebSocketMessages: [],
+
+    // ✅ Таймеры для управления ожиданием
+    warningTimeout: null,
+    fallbackTimeout: null,
+    pollingInterval: null
 };
+
+console.log('✅ Config loaded');

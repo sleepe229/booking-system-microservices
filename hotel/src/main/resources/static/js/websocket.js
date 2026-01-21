@@ -6,6 +6,8 @@ class WebSocketManager {
     constructor() {
         this.socket = null;
         this.reconnectTimeout = null;
+        this.reconnectAttempts = 0;
+        this.maxReconnectAttempts = 10;
     }
 
     /**
@@ -46,6 +48,9 @@ class WebSocketManager {
                 UI.updateWebSocketStatus(true);
                 console.log('✅ WebSocket connected');
 
+                // Сбрасываем счетчик попыток
+                this.reconnectAttempts = 0;
+
                 // Очищаем таймер переподключения
                 if (this.reconnectTimeout) {
                     clearTimeout(this.reconnectTimeout);
@@ -62,8 +67,18 @@ class WebSocketManager {
                 UI.updateWebSocketStatus(false);
                 console.log('❌ WebSocket disconnected');
 
-                // Переподключение через 5 секунд
-                this.reconnectTimeout = setTimeout(() => this.connect(), 5000);
+                // Переподключение с exponential backoff
+                if (this.reconnectAttempts < this.maxReconnectAttempts) {
+                    const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
+                    this.reconnectAttempts++;
+
+                    console.log(`🔄 Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+
+                    this.reconnectTimeout = setTimeout(() => this.connect(), delay);
+                } else {
+                    console.error('❌ Max reconnection attempts reached');
+                    UI.showNotification('⚠️ WebSocket connection lost. Please refresh the page.', 'error');
+                }
             };
 
             this.socket.onerror = (error) => {
@@ -80,7 +95,7 @@ class WebSocketManager {
     }
 
     /**
-     * ✅ Обработка WebSocket сообщений
+     * ✅ Обработка WebSocket сообщений (с буферизацией)
      */
     handleMessage(data) {
         try {
@@ -93,11 +108,35 @@ class WebSocketManager {
                 return;
             }
 
-            // ✅ КЛЮЧЕВОЕ: обрабатываем обновление цены
+            // ✅ Обрабатываем обновление бронирования
             if (message.type === 'BOOKING_UPDATE') {
-                if (STATE.currentBooking && message.bookingId === STATE.currentBooking.bookingId) {
-                    console.log('💰 Получено обновление цены для бронирования:', message.bookingId);
-                    handlePriceUpdate(message);
+                // Добавляем timestamp если его нет
+                if (!message.timestamp) {
+                    message.timestamp = Date.now();
+                }
+
+                // ✅ Пробуем обработать сообщение
+                const processed = handlePriceUpdate(message);
+
+                // ✅ Если не обработалось (STATE.currentBooking еще не установлен) - БУФЕРИЗИРУЕМ
+                if (!processed) {
+                    console.warn('⚠️ Booking not ready yet, buffering message:', message.bookingId);
+
+                    // Добавляем в буфер
+                    STATE.pendingWebSocketMessages.push(message);
+
+                    // ✅ Очищаем старые сообщения (>5 минут)
+                    const now = Date.now();
+                    STATE.pendingWebSocketMessages = STATE.pendingWebSocketMessages.filter(msg => {
+                        const age = now - (msg.timestamp || now);
+                        if (age > 300000) {
+                            console.warn('🗑️ Removing old buffered message:', msg.bookingId, 'age:', age, 'ms');
+                            return false;
+                        }
+                        return true;
+                    });
+
+                    console.log(`📦 Buffer size: ${STATE.pendingWebSocketMessages.length}`);
                 }
             }
         } catch (e) {
@@ -109,6 +148,8 @@ class WebSocketManager {
      * Отключение
      */
     disconnect() {
+        console.log('🔌 Disconnecting WebSocket...');
+
         if (this.reconnectTimeout) {
             clearTimeout(this.reconnectTimeout);
             this.reconnectTimeout = null;
@@ -118,6 +159,9 @@ class WebSocketManager {
             this.socket.close();
             this.socket = null;
         }
+
+        STATE.wsConnected = false;
+        UI.updateWebSocketStatus(false);
     }
 }
 
