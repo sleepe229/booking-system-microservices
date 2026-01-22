@@ -7,6 +7,11 @@
           <package value="com.hotel" />
         </packages>
       </persistence-unit>
+      <persistence-unit moduleName="audit-service" name="Default">
+        <packages>
+          <package value="com.hotel.audit" />
+        </packages>
+      </persistence-unit>
     </persistence-units>
   </component>
 </project>
